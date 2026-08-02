@@ -11,7 +11,7 @@
 | T# | Issue | Task | Deps | Time |
 |----|-------|------|------|------|
 | T11 | #61 | ✅ Setup migrate tool | - | 1h |
-| T12 | #62 | Create migration 001-006 | T11 | 2h |
+| T12 | #62 | ✅ Create migration 001-006 | T11 | 2h |
 | T13 | #63 | Create indexes & constraints | T12 | 1h |
 | T14 | #64 | Test queries & optimization | T13 | 2h |
 
@@ -49,20 +49,20 @@ Closes #61
 
 **Issue**: #62  
 **Deps**: T11  
-**Status**: 🟡 Ready  
+**Status**: ✅ Done  
 **Time**: 2h  
 
 ### Gate
 
-- [ ] 001_create_drivers.sql executável
-- [ ] 002_create_trips.sql executável
-- [ ] 003_create_daily_goals.sql executável
-- [ ] 004_create_payment_records.sql executável
-- [ ] 005_create_work_sessions.sql executável
-- [ ] 006_create_stats_cache.sql executável
-- [ ] Rollback funciona em cada uma
-- [ ] Foreign keys criadas
-- [ ] Constraints validam corretamente
+- [x] 001_create_drivers.sql executável
+- [x] 002_create_trips.sql executável
+- [x] 003_create_daily_goals.sql executável
+- [x] 004_create_payment_records.sql executável
+- [x] 005_create_work_sessions.sql executável
+- [x] 006_create_stats_cache.sql executável
+- [x] Rollback funciona em cada uma
+- [x] Foreign keys criadas
+- [x] Constraints validam corretamente
 
 ### Commit
 
@@ -86,7 +86,7 @@ Closes #62
 
 **Issue**: #63  
 **Deps**: T12  
-**Status**: ⏳ Blocked  
+**Status**: 🟡 Ready  
 **Time**: 1h  
 
 ### Gate
