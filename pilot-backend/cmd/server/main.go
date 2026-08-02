@@ -4,6 +4,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"pilot-backend/internal/config"
+	"pilot-backend/pkg/db"
 	"pilot-backend/pkg/logger"
 )
 
@@ -18,5 +19,13 @@ func main() {
 	defer log.Sync()
 
 	log.Infow("server.starting", "port", cfg.Port, "env", cfg.Environment)
+
+	gormDB, err := db.Connect(cfg, log)
+	if err != nil {
+		log.Fatalw("server.startup_failed", "error", err.Error())
+	}
+	sqlDB, _ := gormDB.DB()
+	defer sqlDB.Close()
+
 	log.Infow("server.ready")
 }
