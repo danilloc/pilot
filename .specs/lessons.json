@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 3,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "surviving_mutant::assert explain format json index usage by checking the query block table key field for the exact index name not substring presence anywhere in the plan since possible keys always lists every considered index even when unused",
+      "text": "Assert EXPLAIN FORMAT=JSON index usage by checking the query_block.table.key field for the exact index name, not substring presence anywhere in the plan, since possible_keys always lists every considered index even when unused",
+      "signal": "surviving_mutant",
+      "scope": "migrations",
+      "status": "candidate",
+      "features": [
+        "database"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md mutation #3 / schema_test.go:220 TestExplain_UsesDriverEndedIndex (migrations)"
+      ],
+      "created": "2026-08-02T15:53:26Z",
+      "last_seen": "2026-08-02T15:53:26Z"
+    },
+    {
+      "id": "L-002",
+      "key": "ac_gap::when a migration task creates multiple tables add at least one fk rejection test and one index existence test per table not just the first few so coverage does not cluster on early tables while later ones ship untested",
+      "text": "When a migration task creates multiple tables, add at least one FK-rejection test and one index-existence test per table, not just the first few, so coverage does not cluster on early tables while later ones ship untested",
+      "signal": "ac_gap",
+      "scope": "migrations",
+      "status": "candidate",
+      "features": [
+        "database"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md Fix 2 / tasks.md T12-T13 Foreign keys criadas/funcionam gate (migrations)"
+      ],
+      "created": "2026-08-02T15:53:26Z",
+      "last_seen": "2026-08-02T15:53:26Z"
+    }
+  ]
+}

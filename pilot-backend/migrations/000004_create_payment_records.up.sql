@@ -1,0 +1,20 @@
+CREATE TABLE payment_records (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    driver_id BIGINT NOT NULL,
+    uber_payment_id VARCHAR(100) UNIQUE,
+    amount DECIMAL(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'BRL',
+    tolls DECIMAL(10,2) DEFAULT 0,
+    taxes DECIMAL(10,2) DEFAULT 0,
+    net_amount DECIMAL(10,2) GENERATED ALWAYS AS (amount - tolls - taxes) STORED,
+    payment_method VARCHAR(50),
+    payment_date DATE NOT NULL,
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (driver_id) REFERENCES drivers(id) ON DELETE CASCADE,
+    INDEX idx_driver_id (driver_id),
+    INDEX idx_payment_date (payment_date),
+    INDEX idx_driver_date (driver_id, payment_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
