@@ -397,6 +397,18 @@ CREATE TABLE stats_cache (
 
 ---
 
+## ⚠️ Nota sobre sargability (corrigido após validação real com 1M linhas)
+
+As 3 queries abaixo foram testadas contra a tabela `trips` com ~1M linhas
+(fatia `database`, T14). A versão original deste documento aplicava
+`DATE(ended_at)` diretamente no `WHERE`/`JOIN`, o que impede o MySQL de
+usar `idx_driver_ended` no critério de data (ele cai para `idx_driver_id`
+sozinho) — um predicado "non-sargable". A performance final ficou dentro
+do limite (60-100ms) mesmo assim, porque o volume por motorista é pequeno,
+mas as queries abaixo já vêm corrigidas para usar o índice composto
+completo, comparando por **intervalo de datas** em vez de transformar a
+coluna.
+
 ## Queries Críticas
 
 ### Daily Earnings
@@ -409,7 +421,10 @@ SELECT
     SUM(distance_km) as total_distance,
     SUM(fare_value) / (SUM(duration_minutes) / 60) as earnings_per_hour
 FROM trips
-WHERE driver_id = ? AND DATE(ended_at) = CURDATE() AND status = 'COMPLETED';
+WHERE driver_id = ?
+  AND ended_at >= CURDATE()
+  AND ended_at < CURDATE() + INTERVAL 1 DAY
+  AND status = 'COMPLETED';
 ```
 
 ### Weekly Stats
@@ -421,11 +436,17 @@ SELECT
     COUNT(*) as trips,
     AVG(fare_value) as avg_fare
 FROM trips
-WHERE driver_id = ? AND DATE(ended_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-      AND status = 'COMPLETED'
+WHERE driver_id = ?
+  AND ended_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+  AND ended_at < CURDATE() + INTERVAL 1 DAY
+  AND status = 'COMPLETED'
 GROUP BY DATE(ended_at)
 ORDER BY day DESC;
 ```
+
+> `DATE(ended_at)` no `SELECT`/`GROUP BY` continua ok — o problema de
+> sargability é só quando a função entra no `WHERE`/`JOIN` filtrando a
+> coluna indexada.
 
 ### Goal Progress
 
@@ -435,7 +456,10 @@ SELECT
     COALESCE(SUM(t.fare_value), 0) as actual_amount,
     (COALESCE(SUM(t.fare_value), 0) / dg.goal_amount * 100) as percent
 FROM daily_goals dg
-LEFT JOIN trips t ON t.driver_id = dg.driver_id AND DATE(t.ended_at) = dg.goal_date AND t.status = 'COMPLETED'
+LEFT JOIN trips t ON t.driver_id = dg.driver_id
+    AND t.ended_at >= dg.goal_date
+    AND t.ended_at < dg.goal_date + INTERVAL 1 DAY
+    AND t.status = 'COMPLETED'
 WHERE dg.driver_id = ? AND dg.goal_date = CURDATE()
 GROUP BY dg.id;
 ```
