@@ -13,7 +13,7 @@
 | T11 | #61 | ✅ Setup migrate tool | - | 1h |
 | T12 | #62 | ✅ Create migration 001-006 | T11 | 2h |
 | T13 | #63 | ✅ Create indexes & constraints | T12 | 1h |
-| T14 | #64 | Test queries & optimization | T13 | 2h |
+| T14 | #64 | ✅ Test queries & optimization | T13 | 2h |
 
 ---
 
@@ -119,17 +119,17 @@ Closes #63
 
 **Issue**: #64  
 **Deps**: T13  
-**Status**: 🟡 Ready  
+**Status**: ✅ Done  
 **Time**: 2h  
 
 ### Gate
 
-- [ ] Daily earnings query executável
-- [ ] Weekly stats query executável
-- [ ] Goal progress query executável
-- [ ] Queries < 100ms com 1M rows
-- [ ] Index explain plan otimizado
-- [ ] Slow query log vazio
+- [x] Daily earnings query executável
+- [x] Weekly stats query executável
+- [x] Goal progress query executável
+- [x] Queries < 100ms com 1M rows (measured: 70ms / ~100ms / 50ms against 1,025,800 rows)
+- [x] Index explain plan otimizado
+- [x] Slow query log vazio
 
 ### Commit
 
