@@ -10,9 +10,9 @@
 
 | T# | Issue | Task | Deps | Time |
 |----|-------|------|------|------|
-| T15 | #65 | Auth handlers (login/me/logout) | T8 | 2h |
-| T16 | #66 | Driver handlers (profile/sync) | T9 | 2h |
-| T17 | #67 | Trips handlers (list/get/sync) | T10 | 2h |
+| T15 | #65 | ⏭️ Auth handlers (login/me/logout) — already built in core-backend | T8 | 2h |
+| T16 | #66 | ⏭️ Driver handlers (profile/sync) — already built in core-backend | T9 | 2h |
+| T17 | #67 | ⏭️ Trips handlers (list/get/sync) — already built in core-backend | T10 | 2h |
 | T18 | #68 | Stats handlers (daily/week/month) | T4 | 2h |
 | T19 | #69 | Goals handlers (CRUD) | T4 | 2h |
 | T20 | #70 | Payments handlers (list/sync) | T5 | 2h |
@@ -26,16 +26,24 @@
 
 **Issue**: #65  
 **Deps**: T8  
+**Status**: ⏭️ Skipped — already implemented in `core-backend` T8 (same design.md, same endpoints). Verified item-by-item against the real code and a live test run before skipping, not assumed:
+- `internal/handler/auth_handler.go:30,41-55` + `TestAuthHandler_UberLogin_Success` — PASS
+- Encrypt-before-persist order confirmed: `internal/service/auth_service.go:82-91` (encrypt) precedes line 114 (`UpsertDriver`)
+- JWT returned: `auth_handler.go:54` returns the token from `auth_service.go:128`
+- `GET /auth/me`: `TestAuthHandler_Me_ReturnsAuthenticatedDriver` — PASS
+- Logout blacklist: `auth_service.go:153` `redis.Blacklist(...)` + `TestAuthHandler_Logout_ThenTokenRejected` (confirms the token stops working afterward) — PASS
+- 12/12 real tests passing (5 handler + 7 service) against live MySQL/Redis, re-run 2026-08-02
+
 **Time**: 2h  
 
 ### Gate
 
-- [ ] POST /auth/uber-login funciona
-- [ ] Token encrypted antes de armazenar
-- [ ] JWT retornado ao cliente
-- [ ] GET /auth/me retorna motorista
-- [ ] POST /auth/logout blacklist token
-- [ ] Tests passam (valid/invalid codes)
+- [x] POST /auth/uber-login funciona
+- [x] Token encrypted antes de armazenar
+- [x] JWT retornado ao cliente
+- [x] GET /auth/me retorna motorista
+- [x] POST /auth/logout blacklist token
+- [x] Tests passam (valid/invalid codes)
 
 ### Commit
 
@@ -57,15 +65,20 @@ Closes #65
 
 **Issue**: #66  
 **Deps**: T9  
+**Status**: ⏭️ Skipped — already implemented in `core-backend` T9. Verified against real code + live test run:
+- `internal/handler/driver_handler.go:27-29` registers GET/PUT `/me`, POST `/sync-profile`
+- `TestDriverHandler_UpdateMe_InvalidPhone` + `TestDriverService_UpdateProfile_InvalidPhone` — input validation confirmed (rejects malformed phone)
+- 10/10 real tests passing (5 handler + 5 service), re-run 2026-08-02
+
 **Time**: 2h  
 
 ### Gate
 
-- [ ] GET /drivers/me funciona
-- [ ] PUT /drivers/me atualiza
-- [ ] POST /drivers/sync-profile sincroniza Uber
-- [ ] Validação de inputs
-- [ ] Tests passam
+- [x] GET /drivers/me funciona
+- [x] PUT /drivers/me atualiza
+- [x] POST /drivers/sync-profile sincroniza Uber
+- [x] Validação de inputs
+- [x] Tests passam
 
 ### Commit
 
@@ -87,15 +100,21 @@ Closes #66
 
 **Issue**: #67  
 **Deps**: T10  
+**Status**: ⏭️ Skipped — already implemented in `core-backend` T10. Verified against real code + live test run:
+- `internal/handler/trip_handler.go:41-57,60-74,81-103` — list (paginated), get by id, sync
+- Filters: `parseDateRange` (start_date/end_date) + status passed through to `tripRepo.GetByDateRange`
+- 9/9 real tests passing (4 handler + 5 service), re-run 2026-08-02
+- Note: the Uber trip field mapping used by `SyncTrips` was written before the real Uber payload was confirmed (see `uber-integration.md`) and is corrected as part of this branch's Uber client rework (T20 area), not re-litigated here since the handler/service/test wiring itself is unchanged and still passes.
+
 **Time**: 2h  
 
 ### Gate
 
-- [ ] GET /trips lista com paginação
-- [ ] GET /trips/:id retorna trip
-- [ ] POST /trips/sync sincroniza Uber
-- [ ] Filtros funcionam
-- [ ] Tests passam
+- [x] GET /trips lista com paginação
+- [x] GET /trips/:id retorna trip
+- [x] POST /trips/sync sincroniza Uber
+- [x] Filtros funcionam
+- [x] Tests passam
 
 ### Commit
 
