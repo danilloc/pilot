@@ -136,15 +136,16 @@ Closes #67
 
 **Issue**: #68  
 **Deps**: T4  
+**Status**: ✅ Done  
 **Time**: 2h  
 
 ### Gate
 
-- [ ] GET /stats/today calcula stats
-- [ ] GET /stats/week agrega diário
-- [ ] GET /stats/month agrega semana
-- [ ] Cache funciona (5 min)
-- [ ] Tests passam
+- [x] GET /stats/today calcula stats
+- [x] GET /stats/week agrega diário
+- [x] GET /stats/month agrega semana
+- [x] Cache funciona (5 min)
+- [x] Tests passam
 
 ### Commit
 

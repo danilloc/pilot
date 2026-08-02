@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 
 	"pilot-backend/internal/config"
 	"pilot-backend/internal/middleware"
@@ -67,6 +68,7 @@ type testEnv struct {
 	jwtMgr     *jwt.Manager
 	driverRepo *repository.DriverRepository
 	uber       *stubUberClient
+	gormDB     *gorm.DB
 	cleanupIDs []int64
 }
 
@@ -111,6 +113,8 @@ func newTestEnv(t *testing.T) *testEnv {
 	driverHandler := NewDriverHandler(driverService)
 	tripService := service.NewTripService(tripRepo, driverRepo, encryptor, uber, log)
 	tripHandler := NewTripHandler(tripService)
+	statsService := service.NewStatsService(gormDB, redisCache, log)
+	statsHandler := NewStatsHandler(statsService)
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -121,8 +125,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	authHandler.Register(api, authMiddleware)
 	driverHandler.Register(api, authMiddleware)
 	tripHandler.Register(api, authMiddleware)
+	statsHandler.Register(api, authMiddleware)
 
-	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo, uber: uber}
+	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo, uber: uber, gormDB: gormDB}
 	t.Cleanup(func() {
 		for _, id := range env.cleanupIDs {
 			gormDB.Unscoped().Where("driver_id = ?", id).Delete(&models.Trip{})

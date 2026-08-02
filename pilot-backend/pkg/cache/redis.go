@@ -5,6 +5,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
@@ -14,6 +15,9 @@ import (
 )
 
 const blacklistKeyPrefix = "blacklist:"
+
+// ErrCacheMiss is returned by Get when key doesn't exist.
+var ErrCacheMiss = errors.New("cache: key not found")
 
 // Redis is a thin wrapper around a go-redis client.
 type Redis struct {
@@ -66,4 +70,25 @@ func (r *Redis) IsBlacklisted(ctx context.Context, token string) (bool, error) {
 		return false, err
 	}
 	return n > 0, nil
+}
+
+// Set stores value under key with the given TTL, overwriting any existing
+// value. Used for general-purpose response caching (e.g. stats endpoints).
+func (r *Redis) Set(ctx context.Context, key, value string, ttl time.Duration) error {
+	return r.client.Set(ctx, key, value, ttl).Err()
+}
+
+// Get returns the value stored at key, or ErrCacheMiss if it doesn't exist
+// (expired or never set).
+func (r *Redis) Get(ctx context.Context, key string) (string, error) {
+	val, err := r.client.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", ErrCacheMiss
+	}
+	return val, err
+}
+
+// Delete removes key, if present.
+func (r *Redis) Delete(ctx context.Context, key string) error {
+	return r.client.Del(ctx, key).Err()
 }
