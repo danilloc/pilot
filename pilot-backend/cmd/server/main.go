@@ -1,10 +1,15 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/joho/godotenv"
 
 	"pilot-backend/internal/config"
+	"pilot-backend/internal/router"
+	"pilot-backend/pkg/cache"
 	"pilot-backend/pkg/db"
+	"pilot-backend/pkg/jwt"
 	"pilot-backend/pkg/logger"
 )
 
@@ -27,5 +32,15 @@ func main() {
 	sqlDB, _ := gormDB.DB()
 	defer sqlDB.Close()
 
+	redisCache := cache.NewRedis(cfg)
+	defer redisCache.Close()
+
+	jwtMgr := jwt.NewManager(cfg.JWTSecret)
+
+	r := router.New(cfg, log, jwtMgr, redisCache, gormDB)
+
 	log.Infow("server.ready")
+	if err := r.Engine.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {
+		log.Fatalw("server.stopped", "error", err.Error())
+	}
 }
