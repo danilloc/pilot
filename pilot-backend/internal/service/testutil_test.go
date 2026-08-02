@@ -28,6 +28,8 @@ type fakeUberClient struct {
 	profileErr  error
 	profile     *oauth.Profile
 	token       *oauth2.Token
+	tripsErr    error
+	trips       []oauth.TripRecord
 }
 
 func (f *fakeUberClient) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
@@ -59,6 +61,16 @@ func (f *fakeUberClient) GetProfile(ctx context.Context, token *oauth2.Token) (*
 		MobilePhoneNumber: "+5511999999999",
 		Rating:            4.9,
 	}, nil
+}
+
+func (f *fakeUberClient) ListTrips(ctx context.Context, token *oauth2.Token, limit int) ([]oauth.TripRecord, error) {
+	if f.tripsErr != nil {
+		return nil, f.tripsErr
+	}
+	if len(f.trips) > limit {
+		return f.trips[:limit], nil
+	}
+	return f.trips, nil
 }
 
 // testAuthService builds a real AuthService (real MySQL, real Redis, real

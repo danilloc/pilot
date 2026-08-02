@@ -29,7 +29,9 @@ const testEncryptionKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
 // stubUberClient is a test double for oauth.UberClient: no real network
 // calls, deterministic profile derived from the exchanged code.
-type stubUberClient struct{}
+type stubUberClient struct {
+	trips []oauth.TripRecord
+}
 
 func (stubUberClient) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
 	return &oauth2.Token{
@@ -50,6 +52,13 @@ func (stubUberClient) GetProfile(ctx context.Context, token *oauth2.Token) (*oau
 	}, nil
 }
 
+func (s stubUberClient) ListTrips(ctx context.Context, token *oauth2.Token, limit int) ([]oauth.TripRecord, error) {
+	if len(s.trips) > limit {
+		return s.trips[:limit], nil
+	}
+	return s.trips, nil
+}
+
 // testEnv wires a real AuthHandler (real MySQL/Redis, fake Uber) behind a
 // real router with the JWT middleware, so these tests exercise the whole
 // request path a client would actually hit.
@@ -57,6 +66,7 @@ type testEnv struct {
 	engine     *gin.Engine
 	jwtMgr     *jwt.Manager
 	driverRepo *repository.DriverRepository
+	uber       *stubUberClient
 	cleanupIDs []int64
 }
 
@@ -87,12 +97,20 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("NewEncryptor() error = %v", err)
 	}
 
+	if err := gormDB.AutoMigrate(&models.Trip{}); err != nil {
+		t.Fatalf("AutoMigrate() error = %v", err)
+	}
+
 	jwtMgr := jwt.NewManager("test-jwt-secret")
 	driverRepo := repository.NewDriverRepository(gormDB)
-	authService := service.NewAuthService(driverRepo, jwtMgr, time.Hour, encryptor, &stubUberClient{}, redisCache, log)
+	tripRepo := repository.NewTripRepository(gormDB)
+	uber := &stubUberClient{}
+	authService := service.NewAuthService(driverRepo, jwtMgr, time.Hour, encryptor, uber, redisCache, log)
 	authHandler := NewAuthHandler(authService, driverRepo)
-	driverService := service.NewDriverService(driverRepo, encryptor, &stubUberClient{}, log)
+	driverService := service.NewDriverService(driverRepo, encryptor, uber, log)
 	driverHandler := NewDriverHandler(driverService)
+	tripService := service.NewTripService(tripRepo, driverRepo, encryptor, uber, log)
+	tripHandler := NewTripHandler(tripService)
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -102,10 +120,12 @@ func newTestEnv(t *testing.T) *testEnv {
 	authMiddleware := middleware.JWTAuth(jwtMgr, redisCache)
 	authHandler.Register(api, authMiddleware)
 	driverHandler.Register(api, authMiddleware)
+	tripHandler.Register(api, authMiddleware)
 
-	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo}
+	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo, uber: uber}
 	t.Cleanup(func() {
 		for _, id := range env.cleanupIDs {
+			gormDB.Unscoped().Where("driver_id = ?", id).Delete(&models.Trip{})
 			gormDB.Unscoped().Where("id = ?", id).Delete(&models.Driver{})
 		}
 	})

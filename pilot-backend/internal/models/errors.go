@@ -26,6 +26,7 @@ const (
 	ErrCodeInvalidTimeRange    ErrorCode = "VAL_006"
 	ErrCodeInvalidGoalAmount   ErrorCode = "VAL_007"
 	ErrCodeInvalidPaymentValue ErrorCode = "VAL_008"
+	ErrCodeInvalidQueryParam   ErrorCode = "VAL_009"
 
 	// Database errors
 	ErrCodeDatabaseError ErrorCode = "DB_001"

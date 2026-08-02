@@ -53,10 +53,14 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService, driverRepo)
 	driverService := service.NewDriverService(driverRepo, encryptor, uberClient, log)
 	driverHandler := handler.NewDriverHandler(driverService)
+	tripRepo := repository.NewTripRepository(gormDB)
+	tripService := service.NewTripService(tripRepo, driverRepo, encryptor, uberClient, log)
+	tripHandler := handler.NewTripHandler(tripService)
 
 	r := router.New(cfg, log, jwtMgr, redisCache, gormDB)
 	authHandler.Register(r.API, r.Auth)
 	driverHandler.Register(r.API, r.Auth)
+	tripHandler.Register(r.API, r.Auth)
 
 	log.Infow("server.ready")
 	if err := r.Engine.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {
