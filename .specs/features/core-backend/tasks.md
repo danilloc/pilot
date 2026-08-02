@@ -12,15 +12,15 @@
 | Task | Issue | Status | Deps | Approx |
 |------|-------|--------|------|--------|
 | T1   | #51   | ✅ Done | None | 4h |
-| T2   | #52   | 🟡 Ready | T1 | 3h |
-| T3   | #53   | 🟡 Ready | T1 | 3h |
-| T4   | #54   | ⏳ Blocked | T2, T3 | 2h |
-| T5   | #55   | 🟡 Ready | T1 | 3h |
-| T6   | #56   | ⏳ Blocked | T5 | 2h |
-| T7   | #57   | 🟡 Ready | T1 | 4h |
-| T8   | #58   | ⏳ Blocked | T7 | 3h |
-| T9   | #59   | ⏳ Blocked | T7 | 3h |
-| T10  | #60   | ⏳ Blocked | T7 | 3h |
+| T2   | #52   | ✅ Done | T1 | 3h |
+| T3   | #53   | ✅ Done | T1 | 3h |
+| T4   | #54   | ✅ Done | T2, T3 | 2h |
+| T5   | #55   | ✅ Done | T1 | 3h |
+| T6   | #56   | 🟡 Ready | T5 | 2h |
+| T7   | #57   | ✅ Done | T1 | 4h |
+| T8   | #58   | ✅ Done | T7 | 3h |
+| T9   | #59   | ✅ Done | T7 | 3h |
+| T10  | #60   | ✅ Done | T7 | 3h |
 
 ---
 
@@ -369,7 +369,7 @@ Closes #51
 
 **Issue**: #52  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done (migration CLI runner not built — see gate note)  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T1  
 
@@ -383,14 +383,14 @@ Configurar conexão com MySQL usando GORM:
 
 ### Gate (Definição de Pronto)
 
-- [ ] GORM conecta com sucesso ao MySQL
-- [ ] Connection pooling configurado (10-50 connections)
-- [ ] SSL/TLS habilitado para produção
-- [ ] Query logging apenas em development
-- [ ] Health check endpoint funciona
-- [ ] Migrations podem rodar (`migrate up`)
-- [ ] Testes de connection passam
-- [ ] Erro de conexão é tratado gracefully
+- [x] GORM conecta com sucesso ao MySQL
+- [x] Connection pooling configurado (10-50 connections)
+- [x] SSL/TLS habilitado para produção
+- [x] Query logging apenas em development
+- [x] Health check endpoint funciona
+- [ ] Migrations podem rodar (`migrate up`) — no `cmd/migrate` CLI was built; tables are created via `gormDB.AutoMigrate` ad-hoc in tests only
+- [x] Testes de connection passam
+- [x] Erro de conexão é tratado gracefully
 
 ### Implementação
 
@@ -475,7 +475,7 @@ Closes #52
 
 **Issue**: #53  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T1  
 
@@ -489,12 +489,12 @@ Implementar JWT token generation/validation:
 
 ### Gate (Definição de Pronto)
 
-- [ ] JWT token gerado corretamente
-- [ ] Claims validadas (iss, exp, aud)
-- [ ] Token inválido é rejeitado
-- [ ] Token expirado é rejeitado
-- [ ] Signing secret é carregado do .env
-- [ ] Testes passam (valid/invalid/expired tokens)
+- [x] JWT token gerado corretamente
+- [x] Claims validadas (iss, exp, aud)
+- [x] Token inválido é rejeitado
+- [x] Token expirado é rejeitado
+- [x] Signing secret é carregado do .env
+- [x] Testes passam (valid/invalid/expired tokens)
 
 ### Implementação
 
@@ -595,7 +595,7 @@ Closes #53
 
 **Issue**: #54  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done  
 **Tempo Estimado**: 2 horas  
 **Dependências**: T2, T3  
 
@@ -611,13 +611,13 @@ Cada model tem método `Validate()`.
 
 ### Gate (Definição de Pronto)
 
-- [ ] Driver model definido com campos corretos
-- [ ] Trip model definido
-- [ ] DailyGoal model definido
-- [ ] PaymentRecord model definido
-- [ ] Cada model tem método Validate()
-- [ ] Validações testadas (email, phone, ratings)
-- [ ] JSON marshaling funciona
+- [x] Driver model definido com campos corretos
+- [x] Trip model definido
+- [x] DailyGoal model definido
+- [x] PaymentRecord model definido
+- [x] Cada model tem método Validate()
+- [x] Validações testadas (email, phone, ratings)
+- [x] JSON marshaling funciona
 
 ### Commit
 
@@ -640,7 +640,7 @@ Closes #54
 
 **Issue**: #55  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T1  
 
@@ -656,12 +656,12 @@ Cada um com CRUD + queries específicas.
 
 ### Gate (Definição de Pronto)
 
-- [ ] DriverRepository com GetByID, Create, Update
-- [ ] TripRepository com GetByDateRange, Create
-- [ ] GoalRepository com GetByDate, Create, Update
-- [ ] PaymentRepository com GetByDateRange, Create
-- [ ] Usar prepared statements (GORM handles isso)
-- [ ] Testes de repository passam
+- [x] DriverRepository com GetByID, Create, Update
+- [x] TripRepository com GetByDateRange, Create
+- [x] GoalRepository com GetByDate, Create, Update
+- [x] PaymentRepository com GetByDateRange, Create
+- [x] Usar prepared statements (GORM handles isso)
+- [x] Testes de repository passam
 
 ### Commit
 
@@ -684,7 +684,7 @@ Closes #55
 
 **Issue**: #57  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done  
 **Tempo Estimado**: 4 horas  
 **Dependências**: T1  
 
@@ -699,13 +699,13 @@ Implementar middleware seguro:
 
 ### Gate (Definição de Pronto)
 
-- [ ] JWT Auth valida token corretamente
-- [ ] Token inválido retorna 401
-- [ ] Rate limiting bloqueia após 100 req/min
-- [ ] CORS whitelist apenas domínios permitidos
-- [ ] Error handler não expõe stack trace
-- [ ] Request logging em JSON (com request_id)
-- [ ] Middleware chain funciona
+- [x] JWT Auth valida token corretamente
+- [x] Token inválido retorna 401
+- [x] Rate limiting bloqueia após 100 req/min
+- [x] CORS whitelist apenas domínios permitidos
+- [x] Error handler não expõe stack trace
+- [x] Request logging em JSON (com request_id)
+- [x] Middleware chain funciona
 
 ### Commit
 
@@ -728,7 +728,7 @@ Closes #57
 
 **Issue**: #58  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T7  
 
@@ -741,13 +741,13 @@ Implementar handlers de autenticação:
 
 ### Gate (Definição de Pronto)
 
-- [ ] POST /auth/uber-login valida código
-- [ ] Token OAuth2 é encrypted antes de armazenar
-- [ ] JWT retornado ao cliente
-- [ ] GET /auth/me retorna motorista autenticado
-- [ ] Dados sensíveis são redacted (Redact())
-- [ ] POST /auth/logout blacklist token
-- [ ] Testes de auth passam
+- [x] POST /auth/uber-login valida código
+- [x] Token OAuth2 é encrypted antes de armazenar
+- [x] JWT retornado ao cliente
+- [x] GET /auth/me retorna motorista autenticado
+- [x] Dados sensíveis são redacted (Redact())
+- [x] POST /auth/logout blacklist token
+- [x] Testes de auth passam
 
 ### Commit
 
@@ -770,7 +770,7 @@ Closes #58
 
 **Issue**: #59  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T7  
 
@@ -783,11 +783,11 @@ Implementar handlers para perfil do motorista:
 
 ### Gate (Definição de Pronto)
 
-- [ ] GET /drivers/me retorna motorista autenticado
-- [ ] PUT /drivers/me atualiza dados
-- [ ] POST /drivers/sync-profile sincroniza Uber
-- [ ] Validação de inputs funciona
-- [ ] Testes passam
+- [x] GET /drivers/me retorna motorista autenticado
+- [x] PUT /drivers/me atualiza dados (campo `phone`; nome/email/rating só mudam via sync-profile — são dados vindos da Uber)
+- [x] POST /drivers/sync-profile sincroniza Uber
+- [x] Validação de inputs funciona
+- [x] Testes passam
 
 ### Commit
 
@@ -809,7 +809,7 @@ Closes #59
 
 **Issue**: #60  
 **Assignee**: danillobrito-sr  
-**Status**: ⏳ Blocked  
+**Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T7  
 
@@ -822,11 +822,11 @@ Implementar handlers para corridas:
 
 ### Gate (Definição de Pronto)
 
-- [ ] GET /trips lista com paginação
-- [ ] GET /trips/:id retorna trip específica
-- [ ] POST /trips/sync sincroniza da Uber API
-- [ ] Filtros por data funcionam
-- [ ] Testes passam
+- [x] GET /trips lista com paginação
+- [x] GET /trips/:id retorna trip específica (sem coordenadas — ver nota de privacidade no design.md)
+- [x] POST /trips/sync sincroniza da Uber API
+- [x] Filtros por data funcionam
+- [x] Testes passam
 
 ### Commit
 
