@@ -39,3 +39,12 @@ func (p *PaymentRecord) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// Validate checks the business-level invariants required before a
+// PaymentRecord can be persisted.
+func (p *PaymentRecord) Validate() error {
+	if p.Amount < 0 || p.Tolls < 0 || p.Taxes < 0 {
+		return ErrInvalidPaymentValue
+	}
+	return nil
+}

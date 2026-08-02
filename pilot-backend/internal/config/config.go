@@ -62,10 +62,15 @@ type Config struct {
 // for anything not set. It does not read the .env file itself — callers are
 // responsible for loading it (e.g. via godotenv) before calling Load.
 func Load() *Config {
+	environment := getEnv("ENVIRONMENT", "development")
+
 	return &Config{
 		Port:        getEnvInt("PORT", 8080),
-		Environment: getEnv("ENVIRONMENT", "development"),
-		GinMode:     getEnv("GIN_MODE", "debug"),
+		Environment: environment,
+		// GIN_MODE always wins when set explicitly; otherwise it follows
+		// ENVIRONMENT so production never defaults to gin's verbose debug
+		// mode by accident.
+		GinMode: getEnv("GIN_MODE", defaultGinMode(environment)),
 
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnvInt("DB_PORT", 3306),
@@ -101,6 +106,15 @@ func Load() *Config {
 
 		SentryDSN: getEnv("SENTRY_DSN", ""),
 	}
+}
+
+// defaultGinMode maps our ENVIRONMENT values onto gin's mode constants:
+// only "development" gets gin's verbose debug logging.
+func defaultGinMode(environment string) string {
+	if environment == "development" {
+		return "debug"
+	}
+	return "release"
 }
 
 func getEnv(key, defaultValue string) string {

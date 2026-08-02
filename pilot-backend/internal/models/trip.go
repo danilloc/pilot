@@ -51,3 +51,18 @@ func (t *Trip) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// Validate checks the business-level invariants required before a Trip can
+// be persisted.
+func (t *Trip) Validate() error {
+	if t.DistanceKM <= 0 {
+		return ErrInvalidDistance
+	}
+	if t.FareValue < 0 {
+		return ErrInvalidFare
+	}
+	if t.EndedAt.Before(t.StartedAt) {
+		return ErrInvalidTimeRange
+	}
+	return nil
+}
