@@ -15,7 +15,13 @@ type Logger struct {
 
 // New builds a Logger emitting JSON at the given level (debug, info, warn,
 // error). Unrecognized levels fall back to info.
-func New(level string) *Logger {
+//
+// environment controls stack traces on Error-level logs: zap's production
+// config attaches one to every Error+ entry by default, which is useful
+// while developing but noisy (and a minor info-exposure surface) once logs
+// ship to an aggregator — so it's only enabled when environment is
+// "development". Any other value (including "" or "production") disables it.
+func New(level, environment string) *Logger {
 	config := zap.NewProductionConfig()
 
 	switch level {
@@ -33,7 +39,14 @@ func New(level string) *Logger {
 
 	config.Encoding = "json"
 
-	built, err := config.Build()
+	var opts []zap.Option
+	if environment != "development" {
+		// zapcore.InvalidLevel sorts above every real level, so no entry
+		// ever qualifies — this disables stacktrace capture entirely.
+		opts = append(opts, zap.AddStacktrace(zapcore.InvalidLevel))
+	}
+
+	built, err := config.Build(opts...)
 	if err != nil {
 		// Falls back to a no-op logger rather than crashing the process on a
 		// logging misconfiguration — logging must never be why the server fails to start.

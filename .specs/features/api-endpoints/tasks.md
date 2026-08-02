@@ -274,15 +274,20 @@ Closes #71
 
 **Issue**: #72  
 **Deps**: T7  
+**Status**: ✅ Done  
 **Time**: 1h  
 
 ### Gate
 
-- [ ] Erro genérico pra cliente
-- [ ] Request ID em response
-- [ ] Stack trace só em dev
-- [ ] Validação de inputs funciona
-- [ ] Error codes padrão
+- [x] Erro genérico pra cliente
+- [x] Request ID em response
+- [x] Stack trace só em dev — real gap found: `zap.NewProductionConfig()`
+      attaches a stacktrace to every Error-level log regardless of
+      environment. Fixed by making `logger.New` take an `environment`
+      param and disabling stacktrace capture unless it's `"development"`.
+- [x] Validação de inputs funciona
+- [x] Error codes padrão — AUTH_/VAL_/DB_/ERR_ namespaces, consistent
+      `ErrorCode.StatusCode()` mapping
 
 ### Commit
 

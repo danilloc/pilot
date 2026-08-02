@@ -17,7 +17,7 @@ func testStatsService(t *testing.T) (*StatsService, *gorm.DB, *cache.Redis) {
 	t.Helper()
 
 	cfg := config.Load()
-	log := logger.New("error")
+	log := logger.New("error", "test")
 
 	gormDB, err := db.Connect(cfg, log)
 	if err != nil {

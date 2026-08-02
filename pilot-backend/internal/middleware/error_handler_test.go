@@ -16,7 +16,7 @@ import (
 func TestErrorHandler_GenericErrorHidesDetail(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	engine.Use(ErrorHandler(logger.New("error")))
+	engine.Use(ErrorHandler(logger.New("error", "test")))
 	engine.GET("/boom", func(c *gin.Context) {
 		c.Error(errors.New("leaked db password: hunter2"))
 	})
@@ -44,7 +44,7 @@ func TestErrorHandler_GenericErrorHidesDetail(t *testing.T) {
 func TestErrorHandler_PropagatesAPIError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	engine.Use(ErrorHandler(logger.New("error")))
+	engine.Use(ErrorHandler(logger.New("error", "test")))
 	engine.GET("/not-found", func(c *gin.Context) {
 		c.Error(models.NewAPIError(models.ErrCodeNotFound, "driver not found"))
 	})
@@ -69,7 +69,7 @@ func TestErrorHandler_PropagatesAPIError(t *testing.T) {
 func TestErrorHandler_NoErrorPassesThrough(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	engine.Use(ErrorHandler(logger.New("error")))
+	engine.Use(ErrorHandler(logger.New("error", "test")))
 	engine.GET("/ok", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 
 	req := httptest.NewRequest(http.MethodGet, "/ok", nil)

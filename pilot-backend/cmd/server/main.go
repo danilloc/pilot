@@ -25,7 +25,7 @@ func main() {
 
 	cfg := config.Load()
 
-	log := logger.New(cfg.LogLevel)
+	log := logger.New(cfg.LogLevel, cfg.Environment)
 	defer log.Sync()
 
 	log.Infow("server.starting", "port", cfg.Port, "env", cfg.Environment)

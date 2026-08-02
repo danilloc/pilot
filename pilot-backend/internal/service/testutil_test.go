@@ -92,7 +92,7 @@ func testAuthService(t *testing.T, uberClient oauth.UberClient) (*AuthService, *
 	t.Helper()
 
 	cfg := config.Load()
-	log := logger.New("error")
+	log := logger.New("error", "test")
 
 	gormDB, err := db.Connect(cfg, log)
 	if err != nil {

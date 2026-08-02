@@ -12,7 +12,7 @@ import (
 // none is available, e.g. in environments without Docker.
 func TestConnectAndHealthCheck(t *testing.T) {
 	cfg := config.Load()
-	log := logger.New("error")
+	log := logger.New("error", "test")
 
 	gormDB, err := Connect(cfg, log)
 	if err != nil {
