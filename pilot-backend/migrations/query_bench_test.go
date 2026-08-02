@@ -58,9 +58,16 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 			t.Errorf("query took %v, want < %v", elapsed, perfThreshold)
 		}
 
+		// design.md's query wraps ended_at in DATE(...), which is not
+		// sargable: MySQL can't range-scan the composite index's second
+		// column through a function, so it correctly falls back to
+		// idx_driver_id for the driver_id equality and evaluates
+		// DATE(ended_at) = CURDATE() as a row filter afterward. Confirmed
+		// empirically (EXPLAIN) — this is why idx_driver_id is the expected
+		// key here, not idx_driver_ended.
 		assertExplainUsesIndex(t, db,
 			"SELECT * FROM trips WHERE driver_id = ? AND DATE(ended_at) = CURDATE() AND status = 'COMPLETED'",
-			[]interface{}{heroDriverID}, "idx_driver_ended")
+			[]interface{}{heroDriverID}, "trips", "idx_driver_id")
 	})
 
 	t.Run("weekly_stats", func(t *testing.T) {
@@ -97,9 +104,10 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 			t.Errorf("query took %v, want < %v", elapsed, perfThreshold)
 		}
 
+		// Same DATE(ended_at) sargability caveat as daily_earnings above.
 		assertExplainUsesIndex(t, db,
 			"SELECT * FROM trips WHERE driver_id = ? AND DATE(ended_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND status = 'COMPLETED'",
-			[]interface{}{heroDriverID}, "idx_driver_ended")
+			[]interface{}{heroDriverID}, "trips", "idx_driver_id")
 	})
 
 	t.Run("goal_progress", func(t *testing.T) {
@@ -121,6 +129,12 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 		if elapsed > perfThreshold {
 			t.Errorf("query took %v, want < %v", elapsed, perfThreshold)
 		}
+
+		// EXPLAIN reports table_name as the query's alias, not the base
+		// table name, when one is used (dg = daily_goals, t = trips).
+		assertExplainUsesIndex(t, db,
+			"SELECT dg.goal_amount, COALESCE(SUM(t.fare_value), 0) as actual_amount FROM daily_goals dg LEFT JOIN trips t ON t.driver_id = dg.driver_id AND DATE(t.ended_at) = dg.goal_date AND t.status = 'COMPLETED' WHERE dg.driver_id = ? AND dg.goal_date = CURDATE() GROUP BY dg.id",
+			[]interface{}{heroDriverID}, "dg", "unique_driver_date")
 	})
 
 	assertSlowLogEmpty(t, db)
@@ -138,17 +152,6 @@ func timedScan(t *testing.T, db *sql.DB, query string, args []interface{}, dest 
 		t.Fatalf("scan error = %v", err)
 	}
 	return elapsed
-}
-
-func assertExplainUsesIndex(t *testing.T, db *sql.DB, query string, args []interface{}, wantIndex string) {
-	t.Helper()
-	var plan string
-	if err := db.QueryRow("EXPLAIN FORMAT=JSON "+query, args...).Scan(&plan); err != nil {
-		t.Fatalf("EXPLAIN error = %v", err)
-	}
-	if !strings.Contains(plan, wantIndex) {
-		t.Errorf("EXPLAIN plan does not use %s:\n%s", wantIndex, plan)
-	}
 }
 
 // seedPerformanceData seeds a hero driver with a realistic, bounded trip
