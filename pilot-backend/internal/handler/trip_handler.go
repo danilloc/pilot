@@ -28,10 +28,11 @@ func NewTripHandler(tripService *service.TripService) *TripHandler {
 	return &TripHandler{tripService: tripService}
 }
 
-// Register mounts the trip routes on api, all behind auth.
-func (h *TripHandler) Register(api *gin.RouterGroup, auth gin.HandlerFunc) {
+// Register mounts the trip routes on api, all behind auth. rateLimit
+// should be the "Trips" category limiter (30 req/min per design.md).
+func (h *TripHandler) Register(api *gin.RouterGroup, auth, rateLimit gin.HandlerFunc) {
 	group := api.Group("/trips")
-	group.Use(auth)
+	group.Use(auth, rateLimit)
 	group.GET("", h.List)
 	group.GET("/:id", h.Get)
 	group.POST("/sync", h.Sync)

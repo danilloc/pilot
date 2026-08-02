@@ -136,12 +136,16 @@ func newTestEnv(t *testing.T) *testEnv {
 	engine.Use(middleware.ErrorHandler(log))
 	api := engine.Group("/api")
 	authMiddleware := middleware.JWTAuth(jwtMgr, redisCache)
-	authHandler.Register(api, authMiddleware)
-	driverHandler.Register(api, authMiddleware)
-	tripHandler.Register(api, authMiddleware)
-	statsHandler.Register(api, authMiddleware)
-	goalHandler.Register(api, authMiddleware)
-	paymentHandler.Register(api, authMiddleware)
+	// Rate limiting itself (and the real per-category wiring) is exercised
+	// by internal/router's tests; a no-op here keeps the many repeated
+	// requests these handler tests make from tripping a real limit.
+	noRateLimit := func(c *gin.Context) { c.Next() }
+	authHandler.Register(api, authMiddleware, noRateLimit)
+	driverHandler.Register(api, authMiddleware, noRateLimit)
+	tripHandler.Register(api, authMiddleware, noRateLimit)
+	statsHandler.Register(api, authMiddleware, noRateLimit)
+	goalHandler.Register(api, authMiddleware, noRateLimit)
+	paymentHandler.Register(api, authMiddleware, noRateLimit)
 
 	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo, uber: uber, gormDB: gormDB}
 	t.Cleanup(func() {

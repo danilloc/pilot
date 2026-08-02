@@ -2,9 +2,11 @@ package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -79,5 +81,70 @@ func TestRouter_ChainAppliesToProtectedRoutes(t *testing.T) {
 	}
 	if rec.Header().Get("X-Request-ID") == "" {
 		t.Error("X-Request-ID header missing on protected route")
+	}
+}
+
+// TestRouter_RateLimitersMatchDesignDoc proves the per-category rate
+// limiters router.New() builds carry the exact limits from
+// api-endpoints/design.md's Rate Limiting table (Auth 5/min, Trips 30/min,
+// Stats 60/min, Goals 30/min), not just that the rate-limit primitive works
+// in isolation (already covered by internal/middleware's tests). Each
+// limiter reports its configured ceiling via the X-RateLimit-Limit
+// response header, so one request per category is enough evidence — no
+// need to fire dozens of requests to find each boundary.
+func TestRouter_RateLimitersMatchDesignDoc(t *testing.T) {
+	r := newTestRouter(t)
+
+	tests := []struct {
+		name      string
+		limiter   gin.HandlerFunc
+		wantLimit string
+	}{
+		{"auth", r.RateLimit.Auth, "5"},
+		{"trips", r.RateLimit.Trips, "30"},
+		{"stats", r.RateLimit.Stats, "60"},
+		{"goals", r.RateLimit.Goals, "30"},
+	}
+
+	nonce := time.Now().UnixNano()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := fmt.Sprintf("/rl-%s-%d", tt.name, nonce)
+			r.API.GET(path, tt.limiter, func(c *gin.Context) { c.Status(http.StatusOK) })
+
+			req := httptest.NewRequest(http.MethodGet, "/api"+path, nil)
+			rec := httptest.NewRecorder()
+			r.Engine.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200, body = %s", rec.Code, rec.Body.String())
+			}
+			if got := rec.Header().Get("X-RateLimit-Limit"); got != tt.wantLimit {
+				t.Errorf("X-RateLimit-Limit = %q, want %q", got, tt.wantLimit)
+			}
+		})
+	}
+}
+
+// TestRouter_AuthRateLimit_BlocksAfterFive proves the Auth limiter actually
+// enforces design.md's 5 req/min ceiling end-to-end through the router
+// (not just that the header reports "5").
+func TestRouter_AuthRateLimit_BlocksAfterFive(t *testing.T) {
+	r := newTestRouter(t)
+	path := fmt.Sprintf("/rl-auth-enforce-%d", time.Now().UnixNano())
+	r.API.GET(path, r.RateLimit.Auth, func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	var lastCode int
+	for i := 0; i < 6; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/api"+path, nil)
+		rec := httptest.NewRecorder()
+		r.Engine.ServeHTTP(rec, req)
+		lastCode = rec.Code
+		if i < 5 && rec.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want 200", i+1, rec.Code)
+		}
+	}
+	if lastCode != http.StatusTooManyRequests {
+		t.Fatalf("6th request status = %d, want 429", lastCode)
 	}
 }

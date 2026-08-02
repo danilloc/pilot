@@ -69,12 +69,12 @@ func main() {
 	paymentHandler := handler.NewPaymentHandler(paymentService)
 
 	r := router.New(cfg, log, jwtMgr, redisCache, gormDB)
-	authHandler.Register(r.API, r.Auth)
-	driverHandler.Register(r.API, r.Auth)
-	tripHandler.Register(r.API, r.Auth)
-	statsHandler.Register(r.API, r.Auth)
-	goalHandler.Register(r.API, r.Auth)
-	paymentHandler.Register(r.API, r.Auth)
+	authHandler.Register(r.API, r.Auth, r.RateLimit.Auth)
+	driverHandler.Register(r.API, r.Auth, r.RateLimit.Default)
+	tripHandler.Register(r.API, r.Auth, r.RateLimit.Trips)
+	statsHandler.Register(r.API, r.Auth, r.RateLimit.Stats)
+	goalHandler.Register(r.API, r.Auth, r.RateLimit.Goals)
+	paymentHandler.Register(r.API, r.Auth, r.RateLimit.Default)
 
 	log.Infow("server.ready")
 	if err := r.Engine.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {

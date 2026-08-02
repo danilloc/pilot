@@ -18,10 +18,11 @@ func NewStatsHandler(statsService *service.StatsService) *StatsHandler {
 	return &StatsHandler{statsService: statsService}
 }
 
-// Register mounts the stats routes on api, all behind auth.
-func (h *StatsHandler) Register(api *gin.RouterGroup, auth gin.HandlerFunc) {
+// Register mounts the stats routes on api, all behind auth. rateLimit
+// should be the "Stats" category limiter (60 req/min per design.md).
+func (h *StatsHandler) Register(api *gin.RouterGroup, auth, rateLimit gin.HandlerFunc) {
 	group := api.Group("/stats")
-	group.Use(auth)
+	group.Use(auth, rateLimit)
 	group.GET("/today", h.Today)
 	group.GET("/week", h.Week)
 	group.GET("/month", h.Month)

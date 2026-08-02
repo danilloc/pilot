@@ -20,10 +20,12 @@ func NewDriverHandler(driverService *service.DriverService) *DriverHandler {
 	return &DriverHandler{driverService: driverService}
 }
 
-// Register mounts the driver routes on api, all behind auth.
-func (h *DriverHandler) Register(api *gin.RouterGroup, auth gin.HandlerFunc) {
+// Register mounts the driver routes on api, all behind auth. design.md's
+// Rate Limiting table doesn't call out a "Drivers" category, so rateLimit
+// is expected to be the general default limiter.
+func (h *DriverHandler) Register(api *gin.RouterGroup, auth, rateLimit gin.HandlerFunc) {
 	group := api.Group("/drivers")
-	group.Use(auth)
+	group.Use(auth, rateLimit)
 	group.GET("/me", h.Me)
 	group.PUT("/me", h.UpdateMe)
 	group.POST("/sync-profile", h.SyncProfile)

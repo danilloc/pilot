@@ -25,8 +25,11 @@ func NewAuthHandler(authService *service.AuthService, driverRepo *repository.Dri
 
 // Register mounts the auth routes on api. login is public; me and logout
 // require auth (the caller must already have a token to log out of).
-func (h *AuthHandler) Register(api *gin.RouterGroup, auth gin.HandlerFunc) {
+// rateLimit applies to the whole group, including the public login route —
+// it runs before auth, so it's keyed by client IP throughout.
+func (h *AuthHandler) Register(api *gin.RouterGroup, auth, rateLimit gin.HandlerFunc) {
 	group := api.Group("/auth")
+	group.Use(rateLimit)
 	group.POST("/uber-login", h.UberLogin)
 	group.GET("/me", auth, h.Me)
 	group.POST("/logout", auth, h.Logout)

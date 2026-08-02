@@ -23,10 +23,11 @@ func NewGoalHandler(goalService *service.GoalService) *GoalHandler {
 	return &GoalHandler{goalService: goalService}
 }
 
-// Register mounts the goal routes on api, all behind auth.
-func (h *GoalHandler) Register(api *gin.RouterGroup, auth gin.HandlerFunc) {
+// Register mounts the goal routes on api, all behind auth. rateLimit
+// should be the "Goals" category limiter (30 req/min per design.md).
+func (h *GoalHandler) Register(api *gin.RouterGroup, auth, rateLimit gin.HandlerFunc) {
 	group := api.Group("/goals")
-	group.Use(auth)
+	group.Use(auth, rateLimit)
 	group.POST("", h.Create)
 	group.GET("", h.Get)
 	group.GET("/progress", h.Progress)

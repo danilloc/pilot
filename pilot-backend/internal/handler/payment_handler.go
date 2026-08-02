@@ -20,10 +20,12 @@ func NewPaymentHandler(paymentService *service.PaymentService) *PaymentHandler {
 	return &PaymentHandler{paymentService: paymentService}
 }
 
-// Register mounts the payment routes on api, all behind auth.
-func (h *PaymentHandler) Register(api *gin.RouterGroup, auth gin.HandlerFunc) {
+// Register mounts the payment routes on api, all behind auth. design.md's
+// Rate Limiting table doesn't call out a "Payments" category, so rateLimit
+// is expected to be the general default limiter.
+func (h *PaymentHandler) Register(api *gin.RouterGroup, auth, rateLimit gin.HandlerFunc) {
 	group := api.Group("/payments")
-	group.Use(auth)
+	group.Use(auth, rateLimit)
 	group.GET("", h.List)
 	group.POST("/sync", h.Sync)
 }

@@ -238,15 +238,21 @@ Closes #70
 
 **Issue**: #71  
 **Deps**: T7  
+**Status**: ✅ Done  
 **Time**: 2h  
 
 ### Gate
 
-- [ ] Todas rotas públicas funcionam
-- [ ] Todas rotas protegidas exigem JWT
-- [ ] CORS whitelist funciona
-- [ ] Rate limiting funciona
-- [ ] Request logging JSON
+- [x] Todas rotas públicas funcionam
+- [x] Todas rotas protegidas exigem JWT
+- [x] CORS whitelist funciona
+- [x] Rate limiting funciona — reworked from a single global 100 req/min
+      into per-category limiters matching design.md's Rate Limiting table
+      exactly (Auth 5/min, Trips 30/min, Stats 60/min, Goals 30/min;
+      Drivers/Payments keep the general default since design.md doesn't
+      list them). Verified via `X-RateLimit-Limit` header per category
+      plus an end-to-end 6-requests-blocked-on-the-6th test for Auth.
+- [x] Request logging JSON
 
 ### Commit
 
