@@ -189,3 +189,99 @@ Sensor ran directly against the live, already-migrated MySQL database (`pilot_db
 **Issues found**: See Fix Plans 1–4 above (2 Major, 2 Minor). None indicate the shipped schema is wrong — they indicate the safety net around 3 of 6 tables and around index-usage assertions is thinner than the tasks.md gate checkboxes claim.
 
 **Next steps**: Route Fix 1 and Fix 2 back as fix tasks (Major); Fix 3 and Fix 4 are optional low-risk follow-ups.
+
+---
+
+## Re-verification (iteration 2)
+
+**Date**: 2026-08-02
+**Diff range**: `f3a94f0..12c4755` (`test(database): fix gaps found by independent Verifier`)
+**Verifier**: independent sub-agent (author ≠ verifier), fresh re-verify pass — did not author the fix commit
+**Environment**: MySQL `pilot_db` at `localhost:3306` (live, 1,025,800-row `trips`, `migrate version=6 dirty=false` confirmed before and after), Redis at `localhost:6379`
+
+### Gap-by-gap re-check
+
+**Fix 1 — EXPLAIN assertions checked substring presence, not the actually-chosen index (Major)**
+
+- `pilot-backend/migrations/schema_test.go:404-433` — `explainKeyForTable()` parses `EXPLAIN FORMAT=JSON` output and walks the JSON tree for the node matching `table_name == tableName`, returning its `"key"` field (empty if none). This is the real access path, not a substring scan of the whole plan.
+- `pilot-backend/migrations/schema_test.go:438-448` — `assertExplainUsesIndex()` calls the above and does `got != wantIndex`, an exact-match comparison, not `strings.Contains`.
+- `pilot-backend/migrations/schema_test.go:369-397` — `TestExplain_UsesDriverEndedIndex` was rewritten to use a sargable `BETWEEN` query against a driver with 100 trips spread over ~2 years (so a 30-day window is genuinely selective), and calls `assertExplainUsesIndex(..., "trips", "idx_driver_ended")`.
+- `pilot-backend/migrations/query_bench_test.go:68-70`, `:108-110` — daily_earnings and weekly_stats now assert `idx_driver_id` (not `idx_driver_ended`), with an explanatory comment that `DATE(ended_at)` wrapping makes the predicate non-sargable.
+- **Independently re-derived, not trusted from the comment**: ran my own `EXPLAIN FORMAT=JSON` against the live DB for both query shapes (driver_id=130, the seeded perf-hero):
+  - `SELECT * FROM trips WHERE driver_id = 130 AND DATE(ended_at) = CURDATE() AND status = 'COMPLETED'` → `"key": "idx_driver_id"`, with `idx_driver_ended` present only in `possible_keys`, never chosen. Confirms the daily_earnings claim.
+  - `SELECT * FROM trips WHERE driver_id = 130 AND DATE(ended_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND status = 'COMPLETED'` → `"key": "idx_driver_id"`. Confirms the weekly_stats claim.
+  - `goal_progress` join query → table alias `"dg"` has `"key": "unique_driver_date"`, table alias `"t"` has `"key": "idx_driver_id"`. Confirms `query_bench_test.go:135-137`'s assertion target (`"dg"`, `unique_driver_date"`).
+- **Sensor re-run (repeat of iteration 1's mutation #3)**: `ALTER TABLE trips DROP INDEX idx_driver_ended, ADD INDEX idx_driver_ended (ended_at, driver_id)` (reversed column order). `TestExplain_UsesDriverEndedIndex` now **FAILS** with `EXPLAIN chose key="idx_driver_id" for table "trips", want "idx_driver_ended"` — the exact defect class that survived in iteration 1 is now caught by the default (non-perf-gated) gate. Reverted via `ALTER TABLE trips DROP INDEX idx_driver_ended, ADD INDEX idx_driver_ended (driver_id, ended_at)`; confirmed `SHOW INDEX` back to `(driver_id, ended_at)` and the test passes again.
+- **Verdict: RESOLVED.** Confirmed via fresh EXPLAIN evidence (not trusting the commit message) and a live-killed/reverted mutation.
+
+**Fix 2 — payment_records/work_sessions/stats_cache had zero coverage (Major)**
+
+- FK rejection: `pilot-backend/migrations/schema_test.go:207-220` (`TestForeignKey_RejectsOrphanPaymentRecord`), `:246-259` (`TestForeignKey_RejectsOrphanWorkSession`) — both insert with `driver_id = 999999999` and assert MySQL error 1452.
+- Cascade: `schema_test.go:222-244` (`TestForeignKey_CascadeDeletesPaymentRecords`), `:261-283` (`TestForeignKey_CascadeDeletesWorkSessions`) — insert, delete parent driver, assert child row count == 0.
+- `ON DELETE SET NULL`: `schema_test.go:285-328` (`TestForeignKey_WorkSessionDailyGoalSetsNull`) — inserts a `daily_goals` row, a `work_sessions` row referencing it, deletes the goal, asserts the session still exists (not cascade-deleted) with `daily_goal_id` now `NULL`.
+- `unique_stat`: `schema_test.go:330-343` (`TestUniqueStat_RejectsDuplicateStatsCache`) — inserts twice with same `(driver_id, stat_type, stat_date)`, asserts the second errors.
+- Index existence: `schema_test.go:65-91` (`TestIndexes_Exist`) now includes `payment_records.idx_driver_date`, `work_sessions.idx_driver_started`, `stats_cache.unique_stat`, `stats_cache.idx_driver_type_date`, `stats_cache.idx_expires` — all 10 subtests pass.
+- **Ran all of the above live**: `go test ./migrations/... -v -count=1` — all pass (see Gate Check below).
+- **Fresh sensor mutations (new, not repeats of iteration 1)**:
+  1. `ALTER TABLE work_sessions DROP FOREIGN KEY work_sessions_ibfk_2; ALTER TABLE work_sessions ADD CONSTRAINT work_sessions_ibfk_2 FOREIGN KEY (daily_goal_id) REFERENCES daily_goals(id) ON DELETE CASCADE` (changed `SET NULL` → `CASCADE`) → `TestForeignKey_WorkSessionDailyGoalSetsNull` **FAILED**: `query work_session error = sql: no rows in result set (session should still exist, not cascade-deleted)`. Reverted to `ON DELETE SET NULL`; confirmed via `information_schema.REFERENTIAL_CONSTRAINTS` (`DELETE_RULE = SET NULL`) and test passes again.
+  2. `ALTER TABLE stats_cache DROP INDEX unique_stat` → both `TestIndexes_Exist/stats_cache.unique_stat` and `TestUniqueStat_RejectsDuplicateStatsCache` **FAILED** (`index "unique_stat" not found`; `expected unique_stat violation ..., got nil error`). Reverted via `ALTER TABLE stats_cache ADD UNIQUE KEY unique_stat (driver_id, stat_type, stat_date)`; confirmed via `SHOW INDEX` and tests pass again.
+- **Verdict: RESOLVED.** All 3 previously-untested tables now have FK-rejection, cascade/set-null, and index-existence coverage, and 2 independent fresh mutations against this new code were both killed.
+
+**Fix 3 — no automated `migrate down` evidence (Minor)**
+
+- `pilot-backend/migrations/rollback_test.go:24-72` — `TestMigrateUpDown_RoundTrip` creates a throwaway database `pilot_db_migrate_rollback_test` (line 40; distinct from `pilot_db`), runs `migrate.New("file://.", dsn)` then `m.Up()` (line 63) and asserts all 6 tables exist, then `m.Down()` (line 68) and asserts all 6 tables no longer exist. `t.Cleanup` (lines 47-51) drops the throwaway database unconditionally.
+- **Ran it live**: `TestMigrateUpDown_RoundTrip` — PASS (3.39s).
+- **Cleanup verified independently**: after the test run, `SHOW DATABASES LIKE 'pilot_db_migrate_rollback_test'` returned zero rows — the throwaway database does not persist.
+- **Confirmed shared data untouched**: `pilot_db.trips` row count remained exactly 1,025,800 before and after this test ran, and `go run ./cmd/migrate version` still reports `version=6 dirty=false` against `pilot_db`.
+- **Verdict: RESOLVED.**
+
+**Fix 4 — no EXPLAIN check for goal_progress (Minor)**
+
+- `pilot-backend/migrations/query_bench_test.go:133-137` — `t.Run("goal_progress", ...)` now calls `assertExplainUsesIndex(..., "dg", "unique_driver_date")` for the `daily_goals`/`trips` join query, with a comment noting EXPLAIN reports the alias (`dg`) as `table_name` when one is used.
+- **Ran it live** (`RUN_PERF_TESTS=1 go test ./migrations/... -run TestQueryPerformance_Under1MRows -v`): `goal_progress` subtest PASS.
+- **Independently re-derived**: ran my own `EXPLAIN FORMAT=JSON` for the goal_progress join and confirmed alias `"dg"` has `"key": "unique_driver_date"` — matches the assertion.
+- **Verdict: RESOLVED.**
+
+### Gate Check (re-run)
+
+- `go build ./...` — clean, exit 0
+- `go vet ./...` — clean, exit 0
+- `gofmt -l migrations/` — clean, no files listed, exit 0
+- `go test ./migrations/... -v -count=1` — **15 passed, 0 failed, 1 justified skip** (`TestQueryPerformance_Under1MRows`, skipped by design without `RUN_PERF_TESTS=1`); `TestIndexes_Exist` has 10/10 passing subtests (up from 4 in iteration 1)
+- `RUN_PERF_TESTS=1 go test ./migrations/... -run TestQueryPerformance_Under1MRows -v -count=1` — 1 passed, 3/3 subtests passed (`daily_earnings`, `weekly_stats`, `goal_progress`, each including its EXPLAIN assertion)
+- **Test count before this fix commit**: 10 top-level (9 always-run + 1 perf-gated)
+- **Test count after this fix commit**: 16 top-level (15 always-run + 1 perf-gated) — **+7 new**: `TestMigrateUpDown_RoundTrip`, `TestForeignKey_RejectsOrphanPaymentRecord`, `TestForeignKey_CascadeDeletesPaymentRecords`, `TestForeignKey_RejectsOrphanWorkSession`, `TestForeignKey_CascadeDeletesWorkSessions`, `TestForeignKey_WorkSessionDailyGoalSetsNull`, `TestUniqueStat_RejectsDuplicateStatsCache`
+- No test was deleted or weakened; `TestIndexes_Exist` grew from 4 to 10 subtests (net addition only)
+- **Data integrity check**: `trips` row count = 1,025,800 both before and after this Verifier's full run (build gate + sensor mutations); `migrate version` = 6, `dirty=false`, unchanged
+
+### Discrimination Sensor (re-verify, lightweight tier)
+
+| # | Mutation | Applied via | Test(s) re-run | Killed? |
+| - | -------- | ----------- | --------------- | ------- |
+| 1 (repeat of iteration-1 #3) | Reversed `idx_driver_ended` column order `(driver_id, ended_at)` → `(ended_at, driver_id)` | `ALTER TABLE trips DROP INDEX idx_driver_ended, ADD INDEX idx_driver_ended (ended_at, driver_id)` | `TestExplain_UsesDriverEndedIndex` | ✅ Killed — now fails with `EXPLAIN chose key="idx_driver_id" ..., want "idx_driver_ended"` (survived in iteration 1; killed now) |
+| 2 (new) | `work_sessions.daily_goal_id` FK changed `ON DELETE SET NULL` → `ON DELETE CASCADE` | `ALTER TABLE work_sessions DROP FOREIGN KEY work_sessions_ibfk_2; ALTER TABLE work_sessions ADD CONSTRAINT work_sessions_ibfk_2 FOREIGN KEY (daily_goal_id) REFERENCES daily_goals(id) ON DELETE CASCADE` | `TestForeignKey_WorkSessionDailyGoalSetsNull` | ✅ Killed — session row disappeared entirely instead of being nulled |
+| 3 (new) | Dropped `unique_stat` on `stats_cache` | `ALTER TABLE stats_cache DROP INDEX unique_stat` | `TestIndexes_Exist/stats_cache.unique_stat`, `TestUniqueStat_RejectsDuplicateStatsCache` | ✅ Killed — both failed as expected |
+
+All 3 mutations reverted and independently re-verified reverted (via `SHOW INDEX` / `information_schema.REFERENTIAL_CONSTRAINTS`) before concluding. Final state re-confirmed clean: full `go test ./migrations/... -v -count=1` re-run after all reversions — 15 passed, 0 failed, 1 justified skip.
+
+**Sensor depth**: lightweight (3 mutations: 1 repeat targeting the previously-surviving defect class, 2 fresh against Fix 2's new code)
+**Result**: 3/3 killed
+
+### Lessons
+
+No new signal — all 4 prior gaps resolved, both fresh mutations killed, no regressions found. Per validate.md §10, a clean PASS with no signal records nothing new. (Iteration 1's two candidate lessons, `L-001` and `L-002` in `.specs/lessons.json`, remain as-is; this pass did not add or contradict them.)
+
+### Summary (iteration 2)
+
+**Overall**: ✅ **PASS** — all 4 gaps from iteration 1 are genuinely resolved, confirmed with independently re-derived evidence (not trusted from the commit message or code comments), and no regressions were introduced. The specific defect class that survived iteration 1's sensor (index column-order regression invisible to the default gate) is now caught by the default, non-perf-gated test suite.
+
+**Spec-anchored check**: 4/4 fixes verified against fresh evidence (file:line + independently re-run EXPLAIN / mutation)
+**Gate**: `go build`, `go vet`, `gofmt` clean; `go test ./migrations/...` 15/15 passed (1 justified skip); perf test 1/1 passed (3/3 subtests) when run explicitly
+**Sensor**: 3/3 mutations killed (1 repeat of the previously-surviving mutation, now killed; 2 fresh mutations against Fix 2's new coverage, both killed)
+**Report**: this file
+
+**What works**: All 4 iteration-1 gaps are resolved. EXPLAIN assertions now check the actually-chosen `key`, not substring presence; `payment_records`/`work_sessions`/`stats_cache` have full FK/cascade/set-null/unique-index coverage; `migrate down` is exercised by an automated, self-cleaning test against a throwaway database; `goal_progress` has its own EXPLAIN assertion.
+
+**Issues found**: None surviving.
+
+**Next steps**: None — feature is ready to be marked done. No further fix→re-verify iterations needed.
