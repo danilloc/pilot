@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"errors"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,11 +32,6 @@ func ErrorHandler(log *logger.Logger) gin.HandlerFunc {
 		apiErr.RequestID = c.GetString("request_id")
 		apiErr.Timestamp = time.Now().UTC().Format(time.RFC3339)
 
-		status := http.StatusInternalServerError
-		if apiErr.Code == models.ErrCodeNotFound {
-			status = http.StatusNotFound
-		}
-
-		c.JSON(status, apiErr)
+		c.JSON(apiErr.Code.StatusCode(), apiErr)
 	}
 }

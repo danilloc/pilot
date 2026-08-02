@@ -1,6 +1,10 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+	"strings"
+)
 
 // ErrorCode is a stable, machine-readable identifier for an API error.
 type ErrorCode string
@@ -66,4 +70,23 @@ func NewAPIError(code ErrorCode, message string) *APIError {
 
 func (e *APIError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+}
+
+// StatusCode maps an ErrorCode onto the HTTP status the API should respond
+// with, by the code's namespace prefix (AUTH_ -> 401, VAL_ -> 400, ...).
+// Unrecognized codes default to 500, the safe choice for an unmapped
+// server-side failure.
+func (c ErrorCode) StatusCode() int {
+	switch {
+	case c == ErrCodeNotFound:
+		return http.StatusNotFound
+	case strings.HasPrefix(string(c), "AUTH_"):
+		return http.StatusUnauthorized
+	case strings.HasPrefix(string(c), "VAL_"):
+		return http.StatusBadRequest
+	case c == "RATE_001":
+		return http.StatusTooManyRequests
+	default:
+		return http.StatusInternalServerError
+	}
 }

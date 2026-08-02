@@ -6,8 +6,13 @@ import (
 	"github.com/joho/godotenv"
 
 	"pilot-backend/internal/config"
+	"pilot-backend/internal/handler"
+	"pilot-backend/internal/oauth"
+	"pilot-backend/internal/repository"
 	"pilot-backend/internal/router"
+	"pilot-backend/internal/service"
 	"pilot-backend/pkg/cache"
+	"pilot-backend/pkg/crypto"
 	"pilot-backend/pkg/db"
 	"pilot-backend/pkg/jwt"
 	"pilot-backend/pkg/logger"
@@ -37,7 +42,18 @@ func main() {
 
 	jwtMgr := jwt.NewManager(cfg.JWTSecret)
 
+	encryptor, err := crypto.NewEncryptor(cfg.EncryptionKey)
+	if err != nil {
+		log.Fatalw("server.encryptor_init_failed", "error", err.Error())
+	}
+
+	driverRepo := repository.NewDriverRepository(gormDB)
+	uberClient := oauth.NewClient(cfg.UberClientID, cfg.UberClientSecret, cfg.UberRedirectURI)
+	authService := service.NewAuthService(driverRepo, jwtMgr, cfg.JWTExpiry, encryptor, uberClient, redisCache, log)
+	authHandler := handler.NewAuthHandler(authService, driverRepo)
+
 	r := router.New(cfg, log, jwtMgr, redisCache, gormDB)
+	authHandler.Register(r.API, r.Auth)
 
 	log.Infow("server.ready")
 	if err := r.Engine.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {
