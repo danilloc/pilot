@@ -1,23 +1,48 @@
 # Pilot — Uber Drivers API Integration Design
 
 **Feature**: `uber-integration`
-**Status**: 🟡 Precisa de validação prática antes da implementação final
+**Status**: 🟢 Mapeamento de campos 100% confirmado — 🔴 acesso real ainda bloqueado (aprovação pendente da Uber)
 **Criado após**: pesquisa na documentação oficial (developer.uber.com/docs/drivers)
+**Atualizado após**: teste real de OAuth + tutorial curl completo oficial (02/08/2026)
 
 ---
 
-## ⚠️ Pendências que bloqueiam a implementação 100% de produção
+## 🔴 Confirmado: acesso aos escopos ainda não aprovado pela Uber
+
+Testamos o fluxo OAuth de verdade (tela de autorização da Uber) e o painel
+do desenvolvedor confirma:
+
+> "Seu aplicativo atualmente não tem acesso aos escopos de Código de
+> Autorização. Entre em contato com seu representante de desenvolvimento
+> de negócios da Uber ou com seu ponto de contato da Uber para solicitar
+> acesso."
+
+Isso vale para **todos os 3 escopos** (`partner.accounts`, `partner.trips`,
+`partner.payments`) — não é um problema de configuração, é aprovação
+pendente do lado da Uber, que exige contato com o time de parcerias/dev
+relations deles. Prazo fora do nosso controle.
+
+**Decisão**: seguir o desenvolvimento da fatia `api-endpoints` (T16, T17,
+T19) com **dados mockados/fixtures** baseados nos formatos reais
+documentados abaixo (JSON de exemplo confirmado na documentação oficial),
+e trocar pela chamada real assim que a aprovação da Uber sair. O client
+Go deve ser escrito de forma que trocar de mock para chamada real seja
+só uma troca de implementação por trás da mesma interface (ex: uma
+interface `UberClient` com um `MockUberClient` e um `RealUberClient`).
+
+---
+
+## ⚠️ Outras pendências (menores, não bloqueantes)
 
 Estas não bloqueiam desenvolvimento/testes, mas precisam ser resolvidas
 antes de considerar a integração "pronta para motoristas reais":
 
-1. **Confirmar scopes ativos no app**: não foi possível confirmar no painel
-   do developer.uber.com se `partner.trips` e `partner.payments` estão
-   liberados (só `partner.accounts`/perfil é garantido). **Ação**: fazer uma
-   chamada de teste real assim que a T16/T17 estiverem implementadas e
-   observar se retorna 200 com dados ou 403/401 de permissão.
-2. **App está em modo "TEST APP" (sandbox)**: precisa solicitar "Create Prod
-   App" no painel antes de motoristas reais poderem logar. Dados de sandbox
+1. ~~Confirmar scopes ativos no app~~ — **resolvido acima**: nenhum scope
+   de Authorization Code está ativo ainda.
+2. **App está em modo "TEST APP" (sandbox)**: precisa solicitar "Criar
+   aplicativo de produção" no painel — mas isso só faz sentido depois que
+   os escopos forem aprovados. Dados de sandbox
+
    podem ser fictícios/limitados.
 3. **Rate limits não documentados publicamente**: a doc oficial não lista
    um número exato. Implementar backoff exponencial (já previsto no
@@ -49,16 +74,24 @@ Usado na T10/T16/T17 (sync e listagem de trips).
 | `from_time` | int | Unix timestamp, início do período |
 | `to_time` | int | Unix timestamp, fim do período |
 
-**Resposta real**:
+**Resposta real (confirmada — tutorial oficial completo, 02/08/2026)**:
 ```json
 {
   "count": 1200,
-  "limit": 50,
+  "limit": 1,
+  "offset": 0,
   "trips": [
     {
+      "trip_id": "b5613b6a-fe74-4704-a637-50f8d51a8bb1",
+      "driver_id": "8LvWuRAq2511gmr8EMkovekFNa2848ly...",
       "fare": 6.2,
+      "currency_code": "USD",
       "distance": 0.37,
+      "duration": 475,
+      "status": "completed",
+      "surge_multiplier": 1,
       "vehicle_id": "0082b54a-6a5e-4f6b-b999-b0649f286381",
+      "pickup": { "timestamp": 1502843903 },
       "dropoff": { "timestamp": 1502844378 },
       "start_city": {
         "latitude": 38.3498,
@@ -77,7 +110,8 @@ Usado na T10/T16/T17 (sync e listagem de trips).
 ```
 
 > `count` pode ser maior que `limit` — **é obrigatório paginar** com
-> `offset` até coletar tudo.
+> `offset` até coletar tudo. `status` pode ser: `accepted`, `arriving`,
+> `in_progress`, `rider_canceled`, `driver_canceled`, `completed`.
 
 ### 3. `GET /v1/partners/payments` — Pagamentos
 
@@ -99,8 +133,8 @@ sincronizar pagamentos automaticamente nesse caso).
 
 | Campo em `trips` (nosso schema) | Origem no JSON da Uber | Observação |
 |---|---|---|
-| `uber_trip_id` | **não confirmado no payload público** — precisa validar no teste real se existe um campo tipo `trip_id`/`request_id`, ou se é preciso gerar hash de `dropoff.timestamp + vehicle_id` como fallback de idempotência | 🔴 Ponto de atenção |
-| `started_at` | `status_changes[].timestamp` onde `status == "trip_began"` | derivado, não é campo direto |
+| `uber_trip_id` | ✅ **`trip_id`** — campo direto, confirmado no tutorial oficial completo | Resolvido |
+| `started_at` | ✅ **`pickup.timestamp`** — campo direto, mais simples que derivar de `status_changes` | Resolvido |
 | `ended_at` | `dropoff.timestamp` | direto |
 | `distance_km` | `distance * 1.60934` | a Uber devolve em **milhas**, precisa converter |
 | `fare_value` | `fare` | direto — é um valor único, **sem quebra** |
@@ -108,28 +142,63 @@ sincronizar pagamentos automaticamente nesse caso).
 | `city` | `start_city.display_name` | só cidade de **origem**, não existe cidade de destino no payload |
 | `start_latitude`/`start_longitude` | `start_city.latitude`/`start_city.longitude` | direto |
 | `end_latitude`/`end_longitude` | **não disponível no payload documentado** | ficam `NULL` |
-| `status` | derivar do último item de `status_changes` (`completed`, `driver_canceled`, `rider_canceled`) | mapear pros nossos valores (`COMPLETED`, `CANCELLED`) |
+| `status` | ✅ **`status`** — campo direto (`completed`, `driver_canceled`, `rider_canceled`, etc), não precisa mais derivar de `status_changes` | mapear pros nossos valores (`COMPLETED`, `CANCELLED`) |
+| (extra, não mapeado ainda) | `duration` (segundos) | pode usar pra **validar** que `duration_minutes` calculado bate com o que a Uber informa — não precisa persistir, é redundante com `started_at`/`ended_at` |
+| (extra, não mapeado ainda) | `currency_code` | mapear pra `trips.currency` (já existe no schema) |
 
-### 🔴 Ponto crítico a resolver na implementação (T16/T17)
+### ✅ Ponto que estava em aberto — agora resolvido
 
-O payload de exemplo da documentação **não mostra claramente um ID único
-de trip**. Antes de implementar o sync de verdade, é obrigatório fazer uma
-chamada real (mesmo em sandbox) e inspecionar o JSON completo pra confirmar
-o nome exato do campo de ID — sem isso, não dá pra garantir idempotência
-(evitar duplicar a mesma corrida se o sync rodar duas vezes).
-
-**Se não existir campo de ID único**: usar como chave de idempotência um
-hash de `vehicle_id + dropoff.timestamp` (uma corrida não devia repetir
-esses dois valores juntos).
+O tutorial oficial completo (`docs/drivers/tutorials/api/curl`) mostra o
+JSON de resposta **sem truncar**, confirmando `trip_id` como campo direto
+e único. Idempotência garantida usando `uber_trip_id = trip_id` — não
+precisa mais do fallback de hash.
 
 ---
 
 ## Mapeamento: Resposta da Uber → Nossa Tabela `payment_records`
 
-Menos detalhado publicamente que trips. A doc confirma que a resposta
-inclui: moeda, valor, horário do pagamento, e tipo (`device_subscription`
-aparece como exemplo de tipo periódico). O mapeamento exato campo-a-campo
-só pode ser confirmado com uma chamada real — **não adivinhar campos aqui**.
+**Formato real confirmado (tutorial oficial completo, 02/08/2026)**:
+
+```json
+{
+  "count": 1200,
+  "limit": 1,
+  "offset": 0,
+  "payments": [
+    {
+      "payment_id": "5cb8304c-f3f0-4a46-b6e3-b55e020750d7",
+      "trip_id": "5cb8304c-f3f0-4a46-b6e3-b55e020750d7",
+      "category": "fare",
+      "event_time": 1502842757,
+      "cash_collected": 0,
+      "amount": 3.12,
+      "currency_code": "USD",
+      "driver_id": "8LvWuRAq2511gmr8EMkovekFNa2848ly...",
+      "breakdown": {
+        "other": 4.16,
+        "service_fee": -1.04
+      },
+      "rider_fees": {},
+      "partner_id": "8LvWuRAq2511gmr8EMkovekFNa2848ly..."
+    }
+  ]
+}
+```
+
+| Campo em `payment_records` (nosso schema) | Origem no JSON da Uber | Observação |
+|---|---|---|
+| `uber_payment_id` | ✅ **`payment_id`** — string UUID direta, confirmado | Resolvido |
+| `amount` | `amount` | direto |
+| `payment_date` | `event_time` (Unix timestamp) | converter pra `DATE` |
+| `tolls` | `breakdown.toll` (quando presente — não aparece em todo pagamento) | direto |
+| `taxes` | **ainda não confirmado** — `breakdown` tem `other`/`service_fee`/`toll`, nenhum chamado literalmente "tax" | mapear `service_fee` como aproximação, revisar quando tiver acesso real |
+| `currency` | `currency_code` | direto |
+| (referência) | `trip_id` | usar pra vincular `payment_records` → `trips` via `trips.uber_trip_id = payments.trip_id` |
+
+**Caso especial documentado**: se o motorista trabalha para um "fleet
+manager", a resposta de payments vem **sempre vazia** (ver nota acima) —
+tratar como cenário válido, não como erro.
+
 
 ---
 
@@ -178,19 +247,38 @@ Já coberto no design do backend (T1/T7):
 
 ## Antes de mandar a fatia `api-endpoints` pro agent
 
-Checklist do que precisa estar resolvido:
+- [x] Confirmado: `partner.accounts`, `partner.trips` e `partner.payments`
+      **não estão liberados** — app precisa de aprovação da Uber
+      (contato com dev relations/parcerias, processo deles)
+- [x] Formato real de `trips` **100% confirmado** via tutorial oficial
+      completo — incluindo `trip_id`, `pickup.timestamp`, `status`,
+      `duration`, `currency_code`
+- [x] Formato real de `payments` **100% confirmado** via tutorial oficial
+      completo — incluindo `payment_id` como string, `trip_id` de
+      vinculação
+- [x] `uber_trip_id` = `trip_id` — idempotência garantida, sem precisar de
+      fallback de hash
+- [x] `UBER_CLIENT_ID`/`UBER_CLIENT_SECRET`/`UBER_REDIRECT_URI` conferidos
+      no `.env` (redirect URI confirmado ✅)
+- [ ] **Ação de negócio pendente, fora do dev**: Danillo buscar contato de
+      dev relations da Uber pra solicitar aprovação dos 3 escopos
+- [ ] Testar OAuth com o domínio correto `auth.uber.com` (em vez de
+      `login.uber.com`, usado nos testes anteriores) — mesmo que a
+      aprovação ainda esteja pendente, vale confirmar se o domínio
+      influenciava o erro observado
 
-- [ ] Confirmado se `partner.trips` e `partner.payments` estão liberados
-      (via teste real ou painel)
-- [ ] Feita 1 chamada de teste em sandbox pra `GET /partners/trips` e
-      inspecionado o JSON completo — confirmar nome do campo de ID único
-- [ ] Feita 1 chamada de teste pra `GET /partners/payments` — confirmar
-      estrutura completa dos campos
-- [ ] Decidido o fallback de idempotência caso não exista ID único
-- [ ] `UBER_CLIENT_ID`/`UBER_CLIENT_SECRET`/`UBER_REDIRECT_URI` conferidos
-      no `.env` (redirect URI já confirmado ✅)
+## Estratégia de implementação (decidida em 02/08/2026)
 
-Se algum item não puder ser resolvido antes (ex: scope de trips ainda não
-aprovado pela Uber), a fatia `api-endpoints` pode seguir implementando os
-handlers com dados mockados/fixtures baseados neste documento, e o sync
-real fica marcado como pendente até o acesso ser confirmado.
+A fatia `api-endpoints` **segue normalmente**, com o client Uber implementado
+atrás de uma interface (`UberClient`), com duas implementações:
+
+- `MockUberClient` — retorna fixtures baseados nos formatos documentados
+  aqui (inclusive o JSON real de `payments`). **Usado agora.**
+- `RealUberClient` — chama a API de verdade. **Implementado, mas não
+  testável até a aprovação sair.** Fica pronto pra troca de configuração
+  (ex: uma flag `UBER_USE_MOCK=true` no `.env`) assim que o acesso for
+  liberado.
+
+Isso permite terminar o desenvolvimento e os testes da fatia inteira sem
+depender do cronograma da Uber, e trocar pra dados reais só mudando uma
+variável de ambiente quando chegar a hora.
