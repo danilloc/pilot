@@ -1,19 +1,22 @@
 package main
 
 import (
-    "encoding/json"
-    "log"
-    "net/http"
+	"github.com/joho/godotenv"
+
+	"pilot-backend/internal/config"
+	"pilot-backend/pkg/logger"
 )
 
 func main() {
-    http.HandleFunc("/api/health", healthHandler)
-    
-    log.Println("Backend started on :8080")
-    http.ListenAndServe(":8080", nil)
-}
+	// .env is optional: in production/CI, config comes from real environment
+	// variables, so a missing file here must not stop the server from starting.
+	_ = godotenv.Load(".env", ".env.local")
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	cfg := config.Load()
+
+	log := logger.New(cfg.LogLevel)
+	defer log.Sync()
+
+	log.Infow("server.starting", "port", cfg.Port, "env", cfg.Environment)
+	log.Infow("server.ready")
 }

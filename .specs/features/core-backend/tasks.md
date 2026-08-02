@@ -11,13 +11,13 @@
 
 | Task | Issue | Status | Deps | Approx |
 |------|-------|--------|------|--------|
-| T1   | #51   | 🟡 Ready | None | 4h |
-| T2   | #52   | ⏳ Blocked | T1 | 3h |
-| T3   | #53   | ⏳ Blocked | T1 | 3h |
+| T1   | #51   | ✅ Done | None | 4h |
+| T2   | #52   | 🟡 Ready | T1 | 3h |
+| T3   | #53   | 🟡 Ready | T1 | 3h |
 | T4   | #54   | ⏳ Blocked | T2, T3 | 2h |
-| T5   | #55   | ⏳ Blocked | T1 | 3h |
+| T5   | #55   | 🟡 Ready | T1 | 3h |
 | T6   | #56   | ⏳ Blocked | T5 | 2h |
-| T7   | #57   | ⏳ Blocked | T1 | 4h |
+| T7   | #57   | 🟡 Ready | T1 | 4h |
 | T8   | #58   | ⏳ Blocked | T7 | 3h |
 | T9   | #59   | ⏳ Blocked | T7 | 3h |
 | T10  | #60   | ⏳ Blocked | T7 | 3h |
@@ -28,7 +28,7 @@
 
 **Issue**: #51  
 **Assignee**: danillobrito-sr  
-**Status**: 🟡 Ready (independente)  
+**Status**: ✅ Done  
 **Tempo Estimado**: 4 horas  
 **Dependências**: Nenhuma  
 
@@ -44,16 +44,16 @@ Inicializar projeto Go com:
 
 ### Gate (Definição de Pronto)
 
-- [ ] `go.mod` criado com dependências principais
-- [ ] Estrutura de pastas criada (/cmd, /internal, /pkg)
-- [ ] `config.go` carrega todas as variáveis de .env
-- [ ] `logger.go` com structured logging (JSON)
-- [ ] `errors.go` com tipos de erro customizados
-- [ ] `crypto.go` com AES-256-GCM encrypt/decrypt
-- [ ] `main.go` inicia server sem erros
-- [ ] `.env.example` criado e documentado
-- [ ] `go mod tidy` funciona
-- [ ] Código compilável com `go build ./cmd/server`
+- [x] `go.mod` criado com dependências principais
+- [x] Estrutura de pastas criada (/cmd, /internal, /pkg)
+- [x] `config.go` carrega todas as variáveis de .env
+- [x] `logger.go` com structured logging (JSON)
+- [x] `errors.go` com tipos de erro customizados
+- [x] `crypto.go` com AES-256-GCM encrypt/decrypt
+- [x] `main.go` inicia server sem erros
+- [x] `.env.example` criado e documentado
+- [x] `go mod tidy` funciona
+- [x] Código compilável com `go build ./cmd/server`
 
 ### Checklist de Implementação
 
