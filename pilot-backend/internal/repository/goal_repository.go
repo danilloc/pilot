@@ -25,6 +25,22 @@ func (r *GoalRepository) Create(ctx context.Context, goal *models.DailyGoal) err
 	return r.db.WithContext(ctx).Create(goal).Error
 }
 
+// GetByID returns a driver's goal by ID, or ErrNotFound. Scoping by
+// driverID enforces data isolation between drivers.
+func (r *GoalRepository) GetByID(ctx context.Context, driverID, id int64) (*models.DailyGoal, error) {
+	var goal models.DailyGoal
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND driver_id = ?", id, driverID).
+		First(&goal).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &goal, nil
+}
+
 // GetByDate returns a driver's goal for the given date, or ErrNotFound.
 func (r *GoalRepository) GetByDate(ctx context.Context, driverID int64, date time.Time) (*models.DailyGoal, error) {
 	var goal models.DailyGoal

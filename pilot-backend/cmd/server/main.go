@@ -58,12 +58,16 @@ func main() {
 	tripHandler := handler.NewTripHandler(tripService)
 	statsService := service.NewStatsService(gormDB, redisCache, log)
 	statsHandler := handler.NewStatsHandler(statsService)
+	goalRepo := repository.NewGoalRepository(gormDB)
+	goalService := service.NewGoalService(goalRepo, gormDB, log)
+	goalHandler := handler.NewGoalHandler(goalService)
 
 	r := router.New(cfg, log, jwtMgr, redisCache, gormDB)
 	authHandler.Register(r.API, r.Auth)
 	driverHandler.Register(r.API, r.Auth)
 	tripHandler.Register(r.API, r.Auth)
 	statsHandler.Register(r.API, r.Auth)
+	goalHandler.Register(r.API, r.Auth)
 
 	log.Infow("server.ready")
 	if err := r.Engine.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {

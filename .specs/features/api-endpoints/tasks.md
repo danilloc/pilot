@@ -167,16 +167,17 @@ Closes #68
 
 **Issue**: #69  
 **Deps**: T4  
+**Status**: ✅ Done  
 **Time**: 2h  
 
 ### Gate
 
-- [ ] POST /goals cria meta
-- [ ] GET /goals retorna meta
-- [ ] GET /goals/progress calcula progresso
-- [ ] PUT /goals/:id atualiza
-- [ ] DELETE /goals/:id marca ABANDONED
-- [ ] Tests passam
+- [x] POST /goals cria meta
+- [x] GET /goals retorna meta
+- [x] GET /goals/progress calcula progresso
+- [x] PUT /goals/:id atualiza
+- [x] DELETE /goals/:id marca ABANDONED
+- [x] Tests passam
 
 ### Commit
 

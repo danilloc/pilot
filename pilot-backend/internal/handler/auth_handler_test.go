@@ -99,7 +99,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("NewEncryptor() error = %v", err)
 	}
 
-	if err := gormDB.AutoMigrate(&models.Trip{}); err != nil {
+	if err := gormDB.AutoMigrate(&models.Trip{}, &models.DailyGoal{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 
@@ -115,6 +115,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	tripHandler := NewTripHandler(tripService)
 	statsService := service.NewStatsService(gormDB, redisCache, log)
 	statsHandler := NewStatsHandler(statsService)
+	goalRepo := repository.NewGoalRepository(gormDB)
+	goalService := service.NewGoalService(goalRepo, gormDB, log)
+	goalHandler := NewGoalHandler(goalService)
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -126,11 +129,13 @@ func newTestEnv(t *testing.T) *testEnv {
 	driverHandler.Register(api, authMiddleware)
 	tripHandler.Register(api, authMiddleware)
 	statsHandler.Register(api, authMiddleware)
+	goalHandler.Register(api, authMiddleware)
 
 	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo, uber: uber, gormDB: gormDB}
 	t.Cleanup(func() {
 		for _, id := range env.cleanupIDs {
 			gormDB.Unscoped().Where("driver_id = ?", id).Delete(&models.Trip{})
+			gormDB.Unscoped().Where("driver_id = ?", id).Delete(&models.DailyGoal{})
 			gormDB.Unscoped().Where("id = ?", id).Delete(&models.Driver{})
 		}
 	})
