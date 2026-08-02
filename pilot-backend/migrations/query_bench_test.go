@@ -45,7 +45,10 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 			SUM(distance_km) as total_distance,
 			SUM(fare_value) / (SUM(duration_minutes) / 60) as earnings_per_hour
 		FROM trips
-		WHERE driver_id = ? AND DATE(ended_at) = CURDATE() AND status = 'COMPLETED'`
+		WHERE driver_id = ?
+		  AND ended_at >= CURDATE()
+		  AND ended_at < CURDATE() + INTERVAL 1 DAY
+		  AND status = 'COMPLETED'`
 
 		var totalEarned, avgFare, totalDistance, earningsPerHour sql.NullFloat64
 		var totalTrips int
@@ -58,16 +61,18 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 			t.Errorf("query took %v, want < %v", elapsed, perfThreshold)
 		}
 
-		// design.md's query wraps ended_at in DATE(...), which is not
-		// sargable: MySQL can't range-scan the composite index's second
-		// column through a function, so it correctly falls back to
-		// idx_driver_id for the driver_id equality and evaluates
-		// DATE(ended_at) = CURDATE() as a row filter afterward. Confirmed
-		// empirically (EXPLAIN) — this is why idx_driver_id is the expected
-		// key here, not idx_driver_ended.
+		// The half-open range is sargable, but for a window this narrow
+		// (~1 day) the cost-based optimizer picks idx_ended_at over the
+		// composite idx_driver_ended: across the whole table, "today"
+		// matches so few rows database-wide that scanning by ended_at
+		// alone (then filtering driver_id) is cheaper than seeking into
+		// idx_driver_ended for one driver's slice. Confirmed via EXPLAIN;
+		// this is data-distribution-dependent optimizer behavior, not a
+		// missing index — weekly_stats below, with a wider 8-day window,
+		// does use idx_driver_ended.
 		assertExplainUsesIndex(t, db,
-			"SELECT * FROM trips WHERE driver_id = ? AND DATE(ended_at) = CURDATE() AND status = 'COMPLETED'",
-			[]interface{}{heroDriverID}, "trips", "idx_driver_id")
+			"SELECT * FROM trips WHERE driver_id = ? AND ended_at >= CURDATE() AND ended_at < CURDATE() + INTERVAL 1 DAY AND status = 'COMPLETED'",
+			[]interface{}{heroDriverID}, "trips", "idx_ended_at")
 	})
 
 	t.Run("weekly_stats", func(t *testing.T) {
@@ -77,8 +82,10 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 			COUNT(*) as trips,
 			AVG(fare_value) as avg_fare
 		FROM trips
-		WHERE driver_id = ? AND DATE(ended_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-		      AND status = 'COMPLETED'
+		WHERE driver_id = ?
+		  AND ended_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+		  AND ended_at < CURDATE() + INTERVAL 1 DAY
+		  AND status = 'COMPLETED'
 		GROUP BY DATE(ended_at)
 		ORDER BY day DESC`
 
@@ -104,10 +111,10 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 			t.Errorf("query took %v, want < %v", elapsed, perfThreshold)
 		}
 
-		// Same DATE(ended_at) sargability caveat as daily_earnings above.
+		// Same sargable date-range form as daily_earnings above.
 		assertExplainUsesIndex(t, db,
-			"SELECT * FROM trips WHERE driver_id = ? AND DATE(ended_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND status = 'COMPLETED'",
-			[]interface{}{heroDriverID}, "trips", "idx_driver_id")
+			"SELECT * FROM trips WHERE driver_id = ? AND ended_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND ended_at < CURDATE() + INTERVAL 1 DAY AND status = 'COMPLETED'",
+			[]interface{}{heroDriverID}, "trips", "idx_driver_ended")
 	})
 
 	t.Run("goal_progress", func(t *testing.T) {
@@ -116,7 +123,10 @@ func TestQueryPerformance_Under1MRows(t *testing.T) {
 			COALESCE(SUM(t.fare_value), 0) as actual_amount,
 			(COALESCE(SUM(t.fare_value), 0) / dg.goal_amount * 100) as percent
 		FROM daily_goals dg
-		LEFT JOIN trips t ON t.driver_id = dg.driver_id AND DATE(t.ended_at) = dg.goal_date AND t.status = 'COMPLETED'
+		LEFT JOIN trips t ON t.driver_id = dg.driver_id
+		    AND t.ended_at >= dg.goal_date
+		    AND t.ended_at < dg.goal_date + INTERVAL 1 DAY
+		    AND t.status = 'COMPLETED'
 		WHERE dg.driver_id = ? AND dg.goal_date = CURDATE()
 		GROUP BY dg.id`
 
