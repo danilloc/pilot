@@ -91,13 +91,17 @@ func newTestEnv(t *testing.T) *testEnv {
 	driverRepo := repository.NewDriverRepository(gormDB)
 	authService := service.NewAuthService(driverRepo, jwtMgr, time.Hour, encryptor, &stubUberClient{}, redisCache, log)
 	authHandler := NewAuthHandler(authService, driverRepo)
+	driverService := service.NewDriverService(driverRepo, encryptor, &stubUberClient{}, log)
+	driverHandler := NewDriverHandler(driverService)
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	engine.Use(middleware.RequestLogger(log))
 	engine.Use(middleware.ErrorHandler(log))
 	api := engine.Group("/api")
-	authHandler.Register(api, middleware.JWTAuth(jwtMgr, redisCache))
+	authMiddleware := middleware.JWTAuth(jwtMgr, redisCache)
+	authHandler.Register(api, authMiddleware)
+	driverHandler.Register(api, authMiddleware)
 
 	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo}
 	t.Cleanup(func() {

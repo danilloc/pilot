@@ -51,9 +51,12 @@ func main() {
 	uberClient := oauth.NewClient(cfg.UberClientID, cfg.UberClientSecret, cfg.UberRedirectURI)
 	authService := service.NewAuthService(driverRepo, jwtMgr, cfg.JWTExpiry, encryptor, uberClient, redisCache, log)
 	authHandler := handler.NewAuthHandler(authService, driverRepo)
+	driverService := service.NewDriverService(driverRepo, encryptor, uberClient, log)
+	driverHandler := handler.NewDriverHandler(driverService)
 
 	r := router.New(cfg, log, jwtMgr, redisCache, gormDB)
 	authHandler.Register(r.API, r.Auth)
+	driverHandler.Register(r.API, r.Auth)
 
 	log.Infow("server.ready")
 	if err := r.Engine.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {
