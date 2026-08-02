@@ -12,7 +12,7 @@
 |----|-------|------|------|------|
 | T11 | #61 | ✅ Setup migrate tool | - | 1h |
 | T12 | #62 | ✅ Create migration 001-006 | T11 | 2h |
-| T13 | #63 | Create indexes & constraints | T12 | 1h |
+| T13 | #63 | ✅ Create indexes & constraints | T12 | 1h |
 | T14 | #64 | Test queries & optimization | T13 | 2h |
 
 ---
@@ -86,18 +86,18 @@ Closes #62
 
 **Issue**: #63  
 **Deps**: T12  
-**Status**: 🟡 Ready  
+**Status**: ✅ Done  
 **Time**: 1h  
 
 ### Gate
 
-- [ ] idx_driver_ended criado em trips
-- [ ] idx_status criado em trips
-- [ ] unique_driver_date criado em daily_goals
-- [ ] Foreign keys funcionam
-- [ ] Constraints CHECK validam
-- [ ] FULLTEXT search em city funciona
-- [ ] Index stats mostram uso
+- [x] idx_driver_ended criado em trips
+- [x] idx_status criado em trips
+- [x] unique_driver_date criado em daily_goals
+- [x] Foreign keys funcionam
+- [x] Constraints CHECK validam
+- [x] FULLTEXT search em city funciona
+- [x] Index stats mostram uso
 
 ### Commit
 
@@ -119,7 +119,7 @@ Closes #63
 
 **Issue**: #64  
 **Deps**: T13  
-**Status**: ⏳ Blocked  
+**Status**: 🟡 Ready  
 **Time**: 2h  
 
 ### Gate
