@@ -33,3 +33,12 @@ func (g *DailyGoal) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// Validate checks the business-level invariants required before a
+// DailyGoal can be persisted.
+func (g *DailyGoal) Validate() error {
+	if g.GoalAmount <= 0 {
+		return ErrInvalidGoalAmount
+	}
+	return nil
+}

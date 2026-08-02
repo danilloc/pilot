@@ -58,3 +58,21 @@ func (d *Driver) Redact() {
 	d.LastLoginIP = ""
 	d.BanReason = ""
 }
+
+// Validate checks the business-level invariants required before a Driver
+// can be persisted or returned to a client.
+func (d *Driver) Validate() error {
+	if !isValidEmail(d.Email) {
+		return ErrInvalidEmail
+	}
+	if d.Phone != "" && !isValidE164(d.Phone) {
+		return ErrInvalidPhone
+	}
+	if d.Rating < 0 || d.Rating > 5 {
+		return ErrInvalidRating
+	}
+	if d.IsBanned {
+		return ErrDriverBanned
+	}
+	return nil
+}
