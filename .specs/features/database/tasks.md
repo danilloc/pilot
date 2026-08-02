@@ -10,7 +10,7 @@
 
 | T# | Issue | Task | Deps | Time |
 |----|-------|------|------|------|
-| T11 | #61 | Setup migrate tool | - | 1h |
+| T11 | #61 | ✅ Setup migrate tool | - | 1h |
 | T12 | #62 | Create migration 001-006 | T11 | 2h |
 | T13 | #63 | Create indexes & constraints | T12 | 1h |
 | T14 | #64 | Test queries & optimization | T13 | 2h |
@@ -20,15 +20,15 @@
 ## T11: Setup Migrate Tool
 
 **Issue**: #61  
-**Status**: 🟡 Ready  
+**Status**: ✅ Done  
 **Time**: 1h  
 
 ### Gate
 
-- [ ] golang-migrate instalado
-- [ ] migrations directory criado
-- [ ] migrate up/down funciona
-- [ ] Database criado e conecta
+- [x] golang-migrate instalado
+- [x] migrations directory criado
+- [x] migrate up/down funciona
+- [x] Database criado e conecta
 
 ### Commit
 
@@ -49,7 +49,7 @@ Closes #61
 
 **Issue**: #62  
 **Deps**: T11  
-**Status**: ⏳ Blocked  
+**Status**: 🟡 Ready  
 **Time**: 2h  
 
 ### Gate
