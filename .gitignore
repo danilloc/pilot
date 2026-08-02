@@ -1,0 +1,34 @@
+# Go
+bin/
+vendor/
+*.exe
+
+# Node
+node_modules/
+dist/
+.nuxt/
+.output/
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+
+# Docker/Tilt
+.tilt-build/
+tilt_modules/
+
+# Database
+mysql_data/
+redis_data/
+
+# Logs
+logs/
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
