@@ -2,7 +2,7 @@
 
 **Feature**: `core-backend`  
 **Branch**: `features/core-backend`  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Milestone**: Pilot MVP  
 
 ---
@@ -27,7 +27,7 @@
 ## T1: Setup Projeto Go + Estrutura Base
 
 **Issue**: #51  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 4 horas  
 **Dependências**: Nenhuma  
@@ -368,7 +368,7 @@ Closes #51
 ## T2: Database Connection + ORM Setup
 
 **Issue**: #52  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done (migration CLI runner not built — see gate note)  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T1  
@@ -474,7 +474,7 @@ Closes #52
 ## T3: JWT & Token Management
 
 **Issue**: #53  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T1  
@@ -594,7 +594,7 @@ Closes #53
 ## T4: Models & Validation
 
 **Issue**: #54  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 2 horas  
 **Dependências**: T2, T3  
@@ -639,7 +639,7 @@ Closes #54
 ## T5: Repository Pattern (CRUD Layer)
 
 **Issue**: #55  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T1  
@@ -683,7 +683,7 @@ Closes #55
 ## T7: Middleware & Authentication
 
 **Issue**: #57  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 4 horas  
 **Dependências**: T1  
@@ -727,7 +727,7 @@ Closes #57
 ## T8: Auth Handler & OAuth2
 
 **Issue**: #58  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T7  
@@ -769,7 +769,7 @@ Closes #58
 ## T9: Driver Handler & Profile
 
 **Issue**: #59  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T7  
@@ -808,7 +808,7 @@ Closes #59
 ## T10: Trips Handler & Sync
 
 **Issue**: #60  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 **Status**: ✅ Done  
 **Tempo Estimado**: 3 horas  
 **Dependências**: T7  

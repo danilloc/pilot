@@ -2,7 +2,7 @@
 
 **Feature**: `frontend-ui`  
 **Branch**: `features/frontend-ui`  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 
 ---
 

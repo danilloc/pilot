@@ -2,7 +2,7 @@
 
 **Feature**: `whatsapp-bot`  
 **Branch**: `features/whatsapp-bot`  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 
 ---
 

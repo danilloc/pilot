@@ -2,7 +2,7 @@
 
 **Feature**: `api-endpoints`  
 **Branch**: `features/api-endpoints`  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 
 ---
 

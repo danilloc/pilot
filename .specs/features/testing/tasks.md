@@ -2,7 +2,7 @@
 
 **Feature**: `testing-coverage`  
 **Branch**: `features/testing-coverage`  
-**Assignee**: danillobrito-sr  
+**Assignee**: danilloc  
 
 ---
 
