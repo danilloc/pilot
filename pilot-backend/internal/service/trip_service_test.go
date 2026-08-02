@@ -40,8 +40,8 @@ func TestTripService_SyncTrips_PersistsNewTrips(t *testing.T) {
 
 	now := time.Now()
 	fake.trips = []oauth.TripRecord{
-		{TripID: "sync-" + t.Name() + "-1", StartTime: now.Add(-time.Hour).Unix(), EndTime: now.Unix(), DistanceKM: 10, Fare: 30},
-		{TripID: "sync-" + t.Name() + "-2", StartTime: now.Add(-2 * time.Hour).Unix(), EndTime: now.Add(-time.Hour).Unix(), DistanceKM: 5, Fare: 15},
+		{TripID: "sync-" + t.Name() + "-1", Status: "completed", Pickup: oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()}, Dropoff: oauth.TripEventTime{Timestamp: now.Unix()}, DistanceMiles: 10, Fare: 30},
+		{TripID: "sync-" + t.Name() + "-2", Status: "completed", Pickup: oauth.TripEventTime{Timestamp: now.Add(-2 * time.Hour).Unix()}, Dropoff: oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()}, DistanceMiles: 5, Fare: 15},
 	}
 
 	count, syncedAt, err := tripSvc.SyncTrips(t.Context(), driver.ID, 50)
@@ -62,7 +62,7 @@ func TestTripService_SyncTrips_DedupesAlreadySynced(t *testing.T) {
 
 	now := time.Now()
 	fake.trips = []oauth.TripRecord{
-		{TripID: "dedupe-" + t.Name(), StartTime: now.Add(-time.Hour).Unix(), EndTime: now.Unix(), DistanceKM: 10, Fare: 30},
+		{TripID: "dedupe-" + t.Name(), Status: "completed", Pickup: oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()}, Dropoff: oauth.TripEventTime{Timestamp: now.Unix()}, DistanceMiles: 10, Fare: 30},
 	}
 
 	first, _, err := tripSvc.SyncTrips(t.Context(), driver.ID, 50)
@@ -89,7 +89,7 @@ func TestTripService_SyncTrips_SkipsInvalidRecords(t *testing.T) {
 	now := time.Now()
 	fake.trips = []oauth.TripRecord{
 		// Invalid: zero distance.
-		{TripID: "invalid-" + t.Name(), StartTime: now.Add(-time.Hour).Unix(), EndTime: now.Unix(), DistanceKM: 0, Fare: 30},
+		{TripID: "invalid-" + t.Name(), Status: "completed", Pickup: oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()}, Dropoff: oauth.TripEventTime{Timestamp: now.Unix()}, DistanceMiles: 0, Fare: 30},
 	}
 
 	count, _, err := tripSvc.SyncTrips(t.Context(), driver.ID, 50)
@@ -98,6 +98,76 @@ func TestTripService_SyncTrips_SkipsInvalidRecords(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("count = %d, want 0 (invalid record should be skipped, not fail the whole sync)", count)
+	}
+}
+
+func TestTripService_SyncTrips_MapsUberFieldsCorrectly(t *testing.T) {
+	fake := &fakeUberClient{}
+	tripSvc, driver, tripRepo, _ := testTripService(t, fake)
+
+	now := time.Now()
+	fake.trips = []oauth.TripRecord{
+		{
+			TripID: "mapped-" + t.Name(), Status: "completed",
+			Pickup:        oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()},
+			Dropoff:       oauth.TripEventTime{Timestamp: now.Unix()},
+			DistanceMiles: 10, Fare: 42.5, CurrencyCode: "USD",
+			StartCity: oauth.TripCity{Latitude: 38.3498, Longitude: -81.6326, DisplayName: "Charleston, WV"},
+		},
+	}
+
+	count, _, err := tripSvc.SyncTrips(t.Context(), driver.ID, 50)
+	if err != nil {
+		t.Fatalf("SyncTrips() error = %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("count = %d, want 1", count)
+	}
+
+	got, err := tripRepo.GetByUberTripID(t.Context(), "mapped-"+t.Name())
+	if err != nil {
+		t.Fatalf("GetByUberTripID() error = %v", err)
+	}
+
+	// distance_km is DECIMAL(10,2), so the DB rounds to 2 decimal places —
+	// tolerance must account for that, not just floating point noise.
+	const wantKM = 16.09 // 10 miles * 1.60934 = 16.0934, rounded
+	if diff := got.DistanceKM - wantKM; diff > 0.005 || diff < -0.005 {
+		t.Errorf("DistanceKM = %v, want %v (10 miles converted to km)", got.DistanceKM, wantKM)
+	}
+	if got.FareValue != 42.5 {
+		t.Errorf("FareValue = %v, want 42.5", got.FareValue)
+	}
+	if got.Currency != "USD" {
+		t.Errorf("Currency = %q, want USD", got.Currency)
+	}
+	if got.Status != "COMPLETED" {
+		t.Errorf("Status = %q, want COMPLETED", got.Status)
+	}
+	if got.City != "Charleston, WV" {
+		t.Errorf("City = %q, want Charleston, WV", got.City)
+	}
+}
+
+func TestTripService_SyncTrips_SkipsNonTerminalStatus(t *testing.T) {
+	fake := &fakeUberClient{}
+	tripSvc, driver, _, _ := testTripService(t, fake)
+
+	now := time.Now()
+	fake.trips = []oauth.TripRecord{
+		{
+			TripID: "inprogress-" + t.Name(), Status: "in_progress",
+			Pickup: oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()},
+			DistanceMiles: 5, Fare: 20,
+		},
+	}
+
+	count, _, err := tripSvc.SyncTrips(t.Context(), driver.ID, 50)
+	if err != nil {
+		t.Fatalf("SyncTrips() error = %v", err)
+	}
+	if count != 0 {
+		t.Errorf("count = %d, want 0 (in_progress trip has no dropoff yet, must not be persisted)", count)
 	}
 }
 

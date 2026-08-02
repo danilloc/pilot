@@ -30,7 +30,12 @@ func TestTripHandler_SyncThenList(t *testing.T) {
 
 	now := time.Now()
 	env.uber.trips = []oauth.TripRecord{
-		{TripID: "handler-" + t.Name(), StartTime: now.Add(-time.Hour).Unix(), EndTime: now.Unix(), DistanceKM: 12, Fare: 45, Currency: "BRL", City: "São Paulo"},
+		{
+			TripID: "handler-" + t.Name(), Status: "completed",
+			Pickup: oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()}, Dropoff: oauth.TripEventTime{Timestamp: now.Unix()},
+			DistanceMiles: 12, Fare: 45, CurrencyCode: "BRL",
+			StartCity: oauth.TripCity{DisplayName: "São Paulo"},
+		},
 	}
 
 	syncReq := httptest.NewRequest(http.MethodPost, "/api/trips/sync", nil)
@@ -89,7 +94,11 @@ func TestTripHandler_Get_NeverLeaksCoordinates(t *testing.T) {
 
 	now := time.Now()
 	env.uber.trips = []oauth.TripRecord{
-		{TripID: "coords-" + t.Name(), StartTime: now.Add(-time.Hour).Unix(), EndTime: now.Unix(), DistanceKM: 3, Fare: 12},
+		{
+			TripID: "coords-" + t.Name(), Status: "completed",
+			Pickup: oauth.TripEventTime{Timestamp: now.Add(-time.Hour).Unix()}, Dropoff: oauth.TripEventTime{Timestamp: now.Unix()},
+			DistanceMiles: 3, Fare: 12,
+		},
 	}
 	syncReq := httptest.NewRequest(http.MethodPost, "/api/trips/sync", nil)
 	syncReq.Header.Set("Authorization", "Bearer "+token)

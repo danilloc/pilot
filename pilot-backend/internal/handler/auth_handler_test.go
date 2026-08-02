@@ -31,7 +31,8 @@ const testEncryptionKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 // stubUberClient is a test double for oauth.UberClient: no real network
 // calls, deterministic profile derived from the exchanged code.
 type stubUberClient struct {
-	trips []oauth.TripRecord
+	trips    []oauth.TripRecord
+	payments []oauth.PaymentRecord
 }
 
 func (stubUberClient) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
@@ -58,6 +59,13 @@ func (s stubUberClient) ListTrips(ctx context.Context, token *oauth2.Token, limi
 		return s.trips[:limit], nil
 	}
 	return s.trips, nil
+}
+
+func (s stubUberClient) ListPayments(ctx context.Context, token *oauth2.Token, limit int) ([]oauth.PaymentRecord, error) {
+	if len(s.payments) > limit {
+		return s.payments[:limit], nil
+	}
+	return s.payments, nil
 }
 
 // testEnv wires a real AuthHandler (real MySQL/Redis, fake Uber) behind a
@@ -99,7 +107,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("NewEncryptor() error = %v", err)
 	}
 
-	if err := gormDB.AutoMigrate(&models.Trip{}, &models.DailyGoal{}); err != nil {
+	if err := gormDB.AutoMigrate(&models.Trip{}, &models.DailyGoal{}, &models.PaymentRecord{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 
@@ -118,6 +126,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	goalRepo := repository.NewGoalRepository(gormDB)
 	goalService := service.NewGoalService(goalRepo, gormDB, log)
 	goalHandler := NewGoalHandler(goalService)
+	paymentRepo := repository.NewPaymentRepository(gormDB)
+	paymentService := service.NewPaymentService(paymentRepo, driverRepo, encryptor, uber, log)
+	paymentHandler := NewPaymentHandler(paymentService)
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -130,12 +141,14 @@ func newTestEnv(t *testing.T) *testEnv {
 	tripHandler.Register(api, authMiddleware)
 	statsHandler.Register(api, authMiddleware)
 	goalHandler.Register(api, authMiddleware)
+	paymentHandler.Register(api, authMiddleware)
 
 	env := &testEnv{engine: engine, jwtMgr: jwtMgr, driverRepo: driverRepo, uber: uber, gormDB: gormDB}
 	t.Cleanup(func() {
 		for _, id := range env.cleanupIDs {
 			gormDB.Unscoped().Where("driver_id = ?", id).Delete(&models.Trip{})
 			gormDB.Unscoped().Where("driver_id = ?", id).Delete(&models.DailyGoal{})
+			gormDB.Unscoped().Where("driver_id = ?", id).Delete(&models.PaymentRecord{})
 			gormDB.Unscoped().Where("id = ?", id).Delete(&models.Driver{})
 		}
 	})

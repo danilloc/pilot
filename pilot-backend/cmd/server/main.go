@@ -48,7 +48,10 @@ func main() {
 	}
 
 	driverRepo := repository.NewDriverRepository(gormDB)
-	uberClient := oauth.NewClient(cfg.UberClientID, cfg.UberClientSecret, cfg.UberRedirectURI)
+	uberClient := oauth.NewUberClient(cfg.UberUseMock, cfg.UberClientID, cfg.UberClientSecret, cfg.UberRedirectURI)
+	if cfg.UberUseMock {
+		log.Warnw("uber.using_mock_client", "reason", "UBER_USE_MOCK=true (partner scopes pending Uber approval)")
+	}
 	authService := service.NewAuthService(driverRepo, jwtMgr, cfg.JWTExpiry, encryptor, uberClient, redisCache, log)
 	authHandler := handler.NewAuthHandler(authService, driverRepo)
 	driverService := service.NewDriverService(driverRepo, encryptor, uberClient, log)
@@ -61,6 +64,9 @@ func main() {
 	goalRepo := repository.NewGoalRepository(gormDB)
 	goalService := service.NewGoalService(goalRepo, gormDB, log)
 	goalHandler := handler.NewGoalHandler(goalService)
+	paymentRepo := repository.NewPaymentRepository(gormDB)
+	paymentService := service.NewPaymentService(paymentRepo, driverRepo, encryptor, uberClient, log)
+	paymentHandler := handler.NewPaymentHandler(paymentService)
 
 	r := router.New(cfg, log, jwtMgr, redisCache, gormDB)
 	authHandler.Register(r.API, r.Auth)
@@ -68,6 +74,7 @@ func main() {
 	tripHandler.Register(r.API, r.Auth)
 	statsHandler.Register(r.API, r.Auth)
 	goalHandler.Register(r.API, r.Auth)
+	paymentHandler.Register(r.API, r.Auth)
 
 	log.Infow("server.ready")
 	if err := r.Engine.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {

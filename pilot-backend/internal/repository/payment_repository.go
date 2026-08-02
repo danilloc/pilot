@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -22,6 +23,20 @@ func NewPaymentRepository(db *gorm.DB) *PaymentRepository {
 // Create inserts a new payment record.
 func (r *PaymentRepository) Create(ctx context.Context, payment *models.PaymentRecord) error {
 	return r.db.WithContext(ctx).Create(payment).Error
+}
+
+// GetByUberPaymentID returns a payment by its Uber payment ID, or
+// ErrNotFound — used to dedupe during sync.
+func (r *PaymentRepository) GetByUberPaymentID(ctx context.Context, uberPaymentID string) (*models.PaymentRecord, error) {
+	var payment models.PaymentRecord
+	err := r.db.WithContext(ctx).Where("uber_payment_id = ?", uberPaymentID).First(&payment).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &payment, nil
 }
 
 // GetByDateRange returns a page of a driver's payments within

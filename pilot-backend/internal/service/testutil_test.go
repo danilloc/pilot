@@ -24,12 +24,14 @@ const testEncryptionKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" // 32 b
 // fakeUberClient is a test double for oauth.UberClient: no real network
 // calls, fully scriptable success/failure per test case.
 type fakeUberClient struct {
-	exchangeErr error
-	profileErr  error
-	profile     *oauth.Profile
-	token       *oauth2.Token
-	tripsErr    error
-	trips       []oauth.TripRecord
+	exchangeErr  error
+	profileErr   error
+	profile      *oauth.Profile
+	token        *oauth2.Token
+	tripsErr     error
+	trips        []oauth.TripRecord
+	paymentsErr  error
+	payments     []oauth.PaymentRecord
 }
 
 func (f *fakeUberClient) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
@@ -71,6 +73,16 @@ func (f *fakeUberClient) ListTrips(ctx context.Context, token *oauth2.Token, lim
 		return f.trips[:limit], nil
 	}
 	return f.trips, nil
+}
+
+func (f *fakeUberClient) ListPayments(ctx context.Context, token *oauth2.Token, limit int) ([]oauth.PaymentRecord, error) {
+	if f.paymentsErr != nil {
+		return nil, f.paymentsErr
+	}
+	if len(f.payments) > limit {
+		return f.payments[:limit], nil
+	}
+	return f.payments, nil
 }
 
 // testAuthService builds a real AuthService (real MySQL, real Redis, real

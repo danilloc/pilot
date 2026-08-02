@@ -200,14 +200,24 @@ Closes #69
 
 **Issue**: #70  
 **Deps**: T5  
+**Status**: ✅ Done  
 **Time**: 2h  
 
 ### Gate
 
-- [ ] GET /payments lista pagamentos
-- [ ] POST /payments/sync sincroniza Uber
-- [ ] Paginação funciona
-- [ ] Tests passam
+- [x] GET /payments lista pagamentos
+- [x] POST /payments/sync sincroniza Uber
+- [x] Paginação funciona
+- [x] Tests passam
+
+**Nota**: esta task também reformou `internal/oauth` inteiro (UberClient) pra
+usar o mapeamento confirmado em `uber-integration.md` (`MockUberClient` +
+`RealUberClient` atrás da mesma interface, `UBER_USE_MOCK=true` por
+padrão), já que T17 (trips, feita antes desse mapeamento existir) e T20
+compartilham o mesmo client. Corrigido no processo: conversão milhas→km
+que faltava em `TripService.SyncTrips`, e mapeamento de status Uber
+(`completed`/`driver_canceled`/`rider_canceled`→terminal,
+`accepted`/`arriving`/`in_progress`→não sincroniza ainda).
 
 ### Commit
 

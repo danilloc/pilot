@@ -94,20 +94,31 @@ func (s *TripService) SyncTrips(ctx context.Context, driverID int64, limit int) 
 
 	synced := 0
 	for _, rec := range records {
+		status, terminal := mapUberTripStatus(rec.Status)
+		if !terminal {
+			// accepted/arriving/in_progress: the trip hasn't ended yet, so
+			// dropoff.timestamp isn't meaningful — nothing to persist until
+			// a later sync sees it in a terminal state.
+			s.log.Infow("trip.sync_skipped_in_progress", "driver_id", driverID, "uber_trip_id", rec.TripID, "uber_status", rec.Status)
+			continue
+		}
+
 		if _, err := s.tripRepo.GetByUberTripID(ctx, rec.TripID); err == nil {
 			continue // already synced
 		}
 
 		trip := &models.Trip{
-			DriverID:   driverID,
-			UberTripID: rec.TripID,
-			StartedAt:  time.Unix(rec.StartTime, 0),
-			EndedAt:    time.Unix(rec.EndTime, 0),
-			DistanceKM: rec.DistanceKM,
-			FareValue:  rec.Fare,
-			Currency:   currencyOrDefault(rec.Currency),
-			City:       rec.City,
-			Status:     statusOrDefault(rec.Status),
+			DriverID:      driverID,
+			UberTripID:    rec.TripID,
+			StartedAt:     time.Unix(rec.Pickup.Timestamp, 0),
+			EndedAt:       time.Unix(rec.Dropoff.Timestamp, 0),
+			DistanceKM:    rec.KM(),
+			FareValue:     rec.Fare,
+			Currency:      currencyOrDefault(rec.CurrencyCode),
+			City:          rec.StartCity.DisplayName,
+			StartLat:      rec.StartCity.Latitude,
+			StartLng:      rec.StartCity.Longitude,
+			Status:        status,
 		}
 
 		if err := trip.Validate(); err != nil {
@@ -131,9 +142,16 @@ func currencyOrDefault(currency string) string {
 	return currency
 }
 
-func statusOrDefault(status string) string {
-	if status == "" {
-		return "COMPLETED"
+// mapUberTripStatus maps Uber's trip status values onto ours. The second
+// return value is false for non-terminal statuses (accepted, arriving,
+// in_progress), which SyncTrips skips rather than persisting.
+func mapUberTripStatus(uberStatus string) (status string, terminal bool) {
+	switch uberStatus {
+	case "completed":
+		return "COMPLETED", true
+	case "driver_canceled", "rider_canceled":
+		return "CANCELLED", true
+	default:
+		return "", false
 	}
-	return status
 }

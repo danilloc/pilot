@@ -34,6 +34,12 @@ type Config struct {
 	UberClientID     string
 	UberClientSecret string
 	UberRedirectURI  string
+	// UberUseMock selects MockUberClient over the real HTTP client. Defaults
+	// to true because partner.accounts/partner.trips/partner.payments scope
+	// access is still pending Uber's approval (see
+	// .specs/features/api-endpoints/uber-integration.md) — flip to false
+	// once access is granted.
+	UberUseMock bool
 
 	// Redis
 	RedisHost     string
@@ -88,6 +94,7 @@ func Load() *Config {
 		UberClientID:     getEnv("UBER_CLIENT_ID", ""),
 		UberClientSecret: getEnv("UBER_CLIENT_SECRET", ""),
 		UberRedirectURI:  getEnv("UBER_REDIRECT_URI", ""),
+		UberUseMock:      getEnvBool("UBER_USE_MOCK", true),
 
 		RedisHost:     getEnv("REDIS_HOST", "localhost"),
 		RedisPort:     getEnvInt("REDIS_PORT", 6379),
