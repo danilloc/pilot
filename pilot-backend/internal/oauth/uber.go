@@ -98,9 +98,9 @@ type tripsResponse struct {
 // payment. Fields are optional per-payment — e.g. Toll only appears when
 // the trip actually incurred one.
 type PaymentBreakdown struct {
-	Other       float64 `json:"other"`
-	ServiceFee  float64 `json:"service_fee"`
-	Toll        float64 `json:"toll"`
+	Other      float64 `json:"other"`
+	ServiceFee float64 `json:"service_fee"`
+	Toll       float64 `json:"toll"`
 }
 
 // PaymentRecord is Uber's GET /v1/partners/payments item shape.
@@ -144,11 +144,19 @@ type UberClient interface {
 
 // Client is the real UberClient implementation, backed by
 // golang.org/x/oauth2 and Uber's documented partner endpoints. It is
-// complete and correct per the confirmed field mapping, but cannot be
-// integration-tested until Uber approves scope access.
+// complete and correct per the confirmed field mapping. The request-shaping/
+// pagination/retry logic is tested against a local httptest.Server (see
+// uber_test.go); only the exact request/response contract with the real
+// Uber API can't be verified until Uber approves scope access.
 type Client struct {
 	cfg        *oauth2.Config
 	httpClient *http.Client
+	// profileURL/tripsURL/paymentsURL default to the real Uber endpoints
+	// (set in NewClient) and are overridden by tests to point at a local
+	// httptest.Server instead.
+	profileURL  string
+	tripsURL    string
+	paymentsURL string
 }
 
 // NewUberClient returns MockUberClient when useMock is true, otherwise a
@@ -176,7 +184,10 @@ func NewClient(clientID, clientSecret, redirectURI string) *Client {
 			},
 			Scopes: []string{"partner.accounts", "partner.trips", "partner.payments"},
 		},
-		httpClient: &http.Client{Timeout: requestTimeout},
+		httpClient:  &http.Client{Timeout: requestTimeout},
+		profileURL:  uberProfileURL,
+		tripsURL:    uberTripsURL,
+		paymentsURL: uberPaymentsURL,
 	}
 }
 
@@ -191,7 +202,7 @@ func (c *Client) Exchange(ctx context.Context, code string) (*oauth2.Token, erro
 // a short backoff on transport errors or a non-2xx response.
 func (c *Client) GetProfile(ctx context.Context, token *oauth2.Token) (*Profile, error) {
 	var profile Profile
-	if err := c.getWithRetry(ctx, uberProfileURL, token, nil, &profile); err != nil {
+	if err := c.getWithRetry(ctx, c.profileURL, token, nil, &profile); err != nil {
 		return nil, fmt.Errorf("uber profile fetch failed: %w", err)
 	}
 	return &profile, nil
@@ -215,7 +226,7 @@ func (c *Client) ListTrips(ctx context.Context, token *oauth2.Token, limit int) 
 			"offset": {strconv.Itoa(offset)},
 			"limit":  {strconv.Itoa(pageSize)},
 		}
-		if err := c.getWithRetry(ctx, uberTripsURL, token, params, &page); err != nil {
+		if err := c.getWithRetry(ctx, c.tripsURL, token, params, &page); err != nil {
 			return nil, fmt.Errorf("uber trips fetch failed: %w", err)
 		}
 
@@ -247,7 +258,7 @@ func (c *Client) ListPayments(ctx context.Context, token *oauth2.Token, limit in
 			"offset": {strconv.Itoa(offset)},
 			"limit":  {strconv.Itoa(pageSize)},
 		}
-		if err := c.getWithRetry(ctx, uberPaymentsURL, token, params, &page); err != nil {
+		if err := c.getWithRetry(ctx, c.paymentsURL, token, params, &page); err != nil {
 			return nil, fmt.Errorf("uber payments fetch failed: %w", err)
 		}
 

@@ -309,14 +309,23 @@ Closes #72
 
 **Issue**: #73  
 **Time**: 3h  
+**Status**: ✅ Done — verified with a real test run against live MySQL/Redis, not assumed:
+- Unit tests (handlers): all 6 handlers (auth, driver, trip, stats, goal, payment) have request-level tests, including error-path branches (invalid body/date/id, driver-not-found via a "ghost" JWT for a non-existent driver_id, invalid query params) added in this pass to `trip_handler_test.go`, `driver_handler_test.go`, `payment_handler_test.go`, `auth_handler_test.go`, `goal_handler_test.go`
+- Integration tests (end-to-end): sync→list round trips against real MySQL through the full router (`TestTripHandler_SyncThenList`, `TestPaymentHandler_SyncThenList`, etc.)
+- Auth flow: `TestAuthHandler_UberLogin_Success`, `TestAuthHandler_Me_*`, `TestAuthHandler_Logout_ThenTokenRejected` (blacklist)
+- Rate limiting: `TestRouter_RateLimitersMatchDesignDoc`, `TestRouter_AuthRateLimit_BlocksAfterFive` (T21)
+- Coverage > 80%: **81.3%** aggregate (`go test ./... -coverpkg=./... -coverprofile=coverage.out` then `go tool cover -func=coverage.out`), up from 67.7% at the start of this pass. `cmd/server`'s `main()` (0%) is excluded as not safely unit-testable (contains `log.Fatalw`/`os.Exit`).
+- `go build ./...`, `go vet ./...`, and the full `go test ./...` suite (all packages) pass clean, 0 failures.
+- Bug found and fixed while closing this gap: `StatsService.Today`/`Week` (`internal/service/stats_service.go`) used MySQL's `CURDATE()` (server timezone, UTC in this environment) as the "today" boundary while `ended_at` is written using the app server's local wall-clock time (UTC-3 in this sandbox) — for a ~3h window around UTC midnight, the DB's "today" and the app's "today" diverged, silently dropping same-day trips from `/api/stats/today` and `/api/stats/week`. Fixed by computing day boundaries in Go and passing them as parameters (matching the pattern `Month()` already used, and the same sargable half-open-range shape from the database slice's fix), instead of relying on the DB's own clock.
+- **Pending**: per the tlc-spec-driven skill, a fresh independent Verifier sub-agent (author ≠ verifier) must run after this task and produce `.specs/features/api-endpoints/validation.md` before the feature is declared complete — not yet dispatched.
 
 ### Gate
 
-- [ ] Unit tests (handlers)
-- [ ] Integration tests (end-to-end)
-- [ ] Auth flow tested
-- [ ] Rate limiting tested
-- [ ] Coverage > 80%
+- [x] Unit tests (handlers)
+- [x] Integration tests (end-to-end)
+- [x] Auth flow tested
+- [x] Rate limiting tested
+- [x] Coverage > 80%
 
 ### Commit
 

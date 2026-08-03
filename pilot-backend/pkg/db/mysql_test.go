@@ -32,3 +32,17 @@ func TestHealthCheckNilConnection(t *testing.T) {
 		t.Fatal("HealthCheck(nil) error = nil, want error")
 	}
 }
+
+func TestSslModeToTLSParam(t *testing.T) {
+	tests := map[string]string{
+		"":            "false",
+		"disable":     "false",
+		"require":     "true",
+		"verify-full": "true",
+	}
+	for sslMode, want := range tests {
+		if got := sslModeToTLSParam(sslMode); got != want {
+			t.Errorf("sslModeToTLSParam(%q) = %q, want %q", sslMode, got, want)
+		}
+	}
+}

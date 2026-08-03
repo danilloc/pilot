@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -95,5 +96,47 @@ func TestPaymentHandler_Sync_EmptyResultSucceeds(t *testing.T) {
 	}
 	if !resp.Success || resp.SyncedCount != 0 {
 		t.Errorf("resp = %+v, want success=true synced_count=0", resp)
+	}
+}
+
+func TestPaymentHandler_List_InvalidDateFormat(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/payments?start_date=garbage", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPaymentHandler_Sync_InvalidBody(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/payments/sync", bytes.NewReader([]byte(`not-json`)))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPaymentHandler_Sync_DriverNotFound(t *testing.T) {
+	env := newTestEnv(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/payments/sync", nil)
+	req.Header.Set("Authorization", "Bearer "+ghostToken(t, env))
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
 	}
 }

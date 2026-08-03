@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"pilot-backend/internal/models"
 )
@@ -106,5 +107,55 @@ func TestDriverHandler_SyncProfile(t *testing.T) {
 	}
 	if !got.Success || got.SyncedAt == "" {
 		t.Errorf("body = %+v, want success=true and a synced_at timestamp", got)
+	}
+}
+
+func ghostToken(t *testing.T, env *testEnv) string {
+	t.Helper()
+	token, err := env.jwtMgr.GenerateToken(999999999, "ghost@example.com", time.Hour)
+	if err != nil {
+		t.Fatalf("GenerateToken() error = %v", err)
+	}
+	return token
+}
+
+func TestDriverHandler_Me_DriverNotFound(t *testing.T) {
+	env := newTestEnv(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/drivers/me", nil)
+	req.Header.Set("Authorization", "Bearer "+ghostToken(t, env))
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDriverHandler_UpdateMe_DriverNotFound(t *testing.T) {
+	env := newTestEnv(t)
+
+	body, _ := json.Marshal(map[string]string{"phone": "+5511988888888"})
+	req := httptest.NewRequest(http.MethodPut, "/api/drivers/me", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+ghostToken(t, env))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDriverHandler_SyncProfile_DriverNotFound(t *testing.T) {
+	env := newTestEnv(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/drivers/sync-profile", nil)
+	req.Header.Set("Authorization", "Bearer "+ghostToken(t, env))
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
 	}
 }

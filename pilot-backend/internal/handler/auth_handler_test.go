@@ -265,3 +265,37 @@ func TestAuthHandler_Logout_ThenTokenRejected(t *testing.T) {
 		t.Fatalf("post-logout /me status = %d, want 401 (token should be blacklisted)", meRec.Code)
 	}
 }
+
+func TestAuthHandler_UberLogin_InvalidBody(t *testing.T) {
+	env := newTestEnv(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/uber-login", bytes.NewReader([]byte(`not-json`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		// UberLogin maps a bind failure to ErrCodeOAuthFailed (AUTH_ namespace -> 401).
+		t.Fatalf("status = %d, want 401, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAuthHandler_Me_DriverNotFound(t *testing.T) {
+	env := newTestEnv(t)
+
+	// A validly-signed token for a driver_id that doesn't exist — distinct
+	// from "no token"/"expired token", which the other Me tests cover.
+	token, err := env.jwtMgr.GenerateToken(999999999, "ghost@example.com", time.Hour)
+	if err != nil {
+		t.Fatalf("GenerateToken() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}

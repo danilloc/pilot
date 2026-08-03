@@ -151,3 +151,152 @@ func TestGoalHandler_UpdateAndDelete(t *testing.T) {
 		t.Errorf("delete resp = %+v, want success=true status=ABANDONED", deleted)
 	}
 }
+
+func TestGoalHandler_Create_InvalidBody(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/goals", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (missing required fields), body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Create_InvalidDateFormat(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	body, _ := json.Marshal(map[string]interface{}{"goal_date": "not-a-date", "goal_amount": 100.00})
+	req := httptest.NewRequest(http.MethodPost, "/api/goals", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Get_InvalidDateFormat(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/goals?date=garbage", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Get_NotFound(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/goals?date=2099-01-01", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (no goal for that date), body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Progress_NotFound(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+	// No goal created for today.
+
+	req := httptest.NewRequest(http.MethodGet, "/api/goals/progress", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Update_InvalidID(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	body, _ := json.Marshal(map[string]interface{}{"goal_amount": 100.00})
+	req := httptest.NewRequest(http.MethodPut, "/api/goals/not-a-number", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Update_InvalidBody(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodPut, "/api/goals/1", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (missing goal_amount), body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Update_NotFound(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	body, _ := json.Marshal(map[string]interface{}{"goal_amount": 100.00})
+	req := httptest.NewRequest(http.MethodPut, "/api/goals/999999999", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Delete_InvalidID(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/goals/not-a-number", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoalHandler_Delete_NotFound(t *testing.T) {
+	env := newTestEnv(t)
+	token, _ := env.login(t, "code-"+t.Name())
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/goals/999999999", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	env.engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404, body = %s", rec.Code, rec.Body.String())
+	}
+}

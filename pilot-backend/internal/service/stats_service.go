@@ -88,7 +88,10 @@ type dailyStatsRow struct {
 // sargable date-range predicate as design.md's confirmed daily_earnings
 // query (see database feature) so idx_driver_ended is used in full.
 func (s *StatsService) Today(ctx context.Context, driverID int64) (*DailyStats, error) {
-	today := time.Now().Format("2006-01-02")
+	now := time.Now()
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dayEnd := dayStart.AddDate(0, 0, 1)
+	today := dayStart.Format("2006-01-02")
 	cacheKey := statsCacheKey("today", driverID, today)
 
 	var cached DailyStats
@@ -107,9 +110,9 @@ func (s *StatsService) Today(ctx context.Context, driverID int64) (*DailyStats, 
 			SUM(duration_minutes) / 60 as active_hours
 		FROM trips
 		WHERE driver_id = ?
-		  AND ended_at >= CURDATE()
-		  AND ended_at < CURDATE() + INTERVAL 1 DAY
-		  AND status = 'COMPLETED'`, driverID).Scan(&row).Error
+		  AND ended_at >= ?
+		  AND ended_at < ?
+		  AND status = 'COMPLETED'`, driverID, dayStart, dayEnd).Scan(&row).Error
 	if err != nil {
 		s.log.Errorw("stats.today_query_failed", "driver_id", driverID, "error", err.Error())
 		return nil, models.NewAPIError(models.ErrCodeDatabaseError, "database error")
@@ -141,7 +144,9 @@ type dayStatRow struct {
 // query.
 func (s *StatsService) Week(ctx context.Context, driverID int64) (*WeeklyStats, error) {
 	now := time.Now()
+	dayEnd := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, 1)
 	periodStart := now.AddDate(0, 0, -7)
+	rangeStart := time.Date(periodStart.Year(), periodStart.Month(), periodStart.Day(), 0, 0, 0, 0, periodStart.Location())
 	cacheKey := statsCacheKey("week", driverID, now.Format("2006-01-02"))
 
 	var cached WeeklyStats
@@ -158,11 +163,11 @@ func (s *StatsService) Week(ctx context.Context, driverID int64) (*WeeklyStats, 
 			AVG(fare_value) as avg_fare
 		FROM trips
 		WHERE driver_id = ?
-		  AND ended_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-		  AND ended_at < CURDATE() + INTERVAL 1 DAY
+		  AND ended_at >= ?
+		  AND ended_at < ?
 		  AND status = 'COMPLETED'
 		GROUP BY DATE(ended_at)
-		ORDER BY day DESC`, driverID).Scan(&rows).Error
+		ORDER BY day DESC`, driverID, rangeStart, dayEnd).Scan(&rows).Error
 	if err != nil {
 		s.log.Errorw("stats.week_query_failed", "driver_id", driverID, "error", err.Error())
 		return nil, models.NewAPIError(models.ErrCodeDatabaseError, "database error")
